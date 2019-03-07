@@ -25,21 +25,23 @@ public class Server {
             DatagramPacket receivePacket = new DatagramPacket(buf, buf.length);
             socket.receive(receivePacket);
 
-            System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
-
-            AgentUDP agent = new AgentUDP();
-
             // parsing to String
             String sentence = new String(receivePacket.getData());
             System.out.println("RECEIVED: " + sentence);
+
+            if (!sentence.equals("1")) {
+                return;
+            }
 
             // we retrieve the address and port of the client, since we are going to send the response back.
             InetAddress address = receivePacket.getAddress();
             int portClient = receivePacket.getPort();
 
-            // send response
-            DatagramPacket sendPacket = new DatagramPacket(buf, buf.length, address, portClient);
-            socket.send(sendPacket);
+            System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
+
+            AgentUDP agent = new AgentUDP(socket, address, portClient);
+            Thread t1 = new Thread(agent);
+            t1.start();
 
         }
     }

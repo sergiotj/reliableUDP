@@ -1,3 +1,5 @@
+import sun.management.Agent;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -8,7 +10,31 @@ import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class AgentUDP extends Thread {
+public class AgentUDP implements Runnable {
+
+    private DatagramSocket socket;
+    private InetAddress address;
+    private int port;
+
+    public AgentUDP(){
+
+    };
+
+    public AgentUDP(DatagramSocket socket, InetAddress address, int port) {
+
+        this.socket = socket;
+        this.address = address;
+        this.port = port;
+    }
+
+    @Override
+    public void run() throws IOException {
+
+        // send response
+        DatagramPacket sendPacket = new DatagramPacket(buf, buf.length, address, port);
+        socket.send(sendPacket);
+
+    }
 
     public void receptionDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts, String filename) throws IOException {
 
