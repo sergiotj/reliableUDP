@@ -83,10 +83,7 @@ public class AgentUDP extends Thread {
                 // there are missing parts... so, while loop should continue
                 continue;
             }
-
         }
-
-
     }
 
     public void dispatchDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts) throws IOException {
