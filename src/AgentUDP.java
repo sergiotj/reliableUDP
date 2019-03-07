@@ -5,18 +5,16 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
-import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
 public class AgentUDP extends Thread {
 
-    public void receptionDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts) throws IOException {
+    public void receptionDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts, String filename) throws IOException {
 
         int iWritten = 0;
 
-        FileOutputStream outToFile = new FileOutputStream(file);
+        FileOutputStream outToFile = new FileOutputStream(filename);
 
         ArrayList<Integer> missingParts = new ArrayList<>();
 
@@ -86,21 +84,11 @@ public class AgentUDP extends Thread {
         }
     }
 
-    public void dispatchDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts) throws IOException {
+    public void dispatchDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts, String fileName) throws IOException {
 
-        File file = new File(file);
+        File file = new File(fileName);
 
-        // Create a byte array to store file
-        byte[] fileContent = Files.readAllBytes(file.toPath());
-
-        // Divide byte array in chunks
-        byte[][] ret = new byte[(int)Math.ceil(fileContent.length / (double) 1021)][1021];
-
-        for(int i = 0, start = 0; i < ret.length; i++) {
-
-            ret[i] = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
-            start += sizeOfPacket;
-        }
+        byte[][] chunks = Packet.fileToChunks(file, sizeOfPacket);
 
         // list of all chunks that were not sent with success to destiny
         ArrayList<Integer> notSentWithSuccess = new ArrayList<>();
@@ -125,7 +113,7 @@ public class AgentUDP extends Thread {
                 message[0] = (byte) (seqNumber >> 8);
                 message[1] = (byte) (seqNumber);
 
-                System.arraycopy(ret[seqNumber], 0, message, 3, 1021);
+                System.arraycopy(chunks[seqNumber], 0, message, 3, 1021);
 
                 DatagramPacket sendPacket = new DatagramPacket(message, message.length, address, getPort());
                 socket.send(sendPacket);
@@ -134,38 +122,44 @@ public class AgentUDP extends Thread {
 
                 System.out.println("Sent: Sequence number = " + sequenceNumber);
             }
-        }
 
-        // receiving acknowledgments
-        while (true) {
+            // receiving acknowledgments
+            while (true) {
 
-            // Create another packet by setting a byte array and creating data gram packet
-            byte[] ack = new byte[2];
-            DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
+                // Create another packet by setting a byte array and creating data gram packet
+                byte[] ack = new byte[2];
+                DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
-            try {
+                try {
 
-                // set the socket timeout for the packet acknowledgment
-                socket.setSoTimeout(50);
-                socket.receive(ackpack);
+                    // set the socket timeout for the packet acknowledgment
+                    socket.setSoTimeout(50);
+                    socket.receive(ackpack);
 
-                ackSequence = ((ack[0] & 0xff) << 8) + (ack[1] & 0xff);
+                    ackSequence = ((ack[0] & 0xff) << 8) + (ack[1] & 0xff);
 
-            }
+                }
 
-            // we did not receive an ack
-            catch (SocketTimeoutException e) {
-                System.out.println("Socket timed out waiting for ACKs");
-            }
+                // we did not receive an ack
+                catch (SocketTimeoutException e) {
 
-            if (ackSequence == sequenceNumber) {
+                    System.out.println("Socket timed out waiting for ACKs");
+                }
 
                 // removes seqNumber from list
-                notSentWithSuccess.remove(Integer.valueOf(sequenceNumber));
+                notSentWithSuccess.remove(Integer.valueOf(ackSequence));
+                w++;
 
                 System.out.println("Ack received: Sequence Number = " + ackSequence);
-            }
 
+                if (notSentWithSuccess.isEmpty()) {
+
+                    System.out.println("Envio realizado com sucesso.");
+                    return;
+                }
+
+                break;
+            }
         }
     }
 

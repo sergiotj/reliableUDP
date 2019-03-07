@@ -1,3 +1,8 @@
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Arrays;
+
 public class Packet {
 
     private byte[] fullPacket;
@@ -15,10 +20,7 @@ public class Packet {
         // sequence number
         this.seqNumber = this.fullPacket[0];
 
-        // byte to Int
-        int seqNumberInt = (seqNumber & 0xFF);
-
-        return seqNumberInt;
+        return (seqNumber & 0xFF);
     }
 
     public byte[] retrieveData(int sizeOfPacket, int sizeOfHeader) {
@@ -29,6 +31,23 @@ public class Packet {
         System.arraycopy(this.fullPacket, sizeOfHeader, fileByteArray, 0, sizeOfPacket - sizeOfHeader);
 
         return fileByteArray;
+    }
+
+    public static byte[][] fileToChunks(File filename, int sizeOfPacket) throws IOException {
+
+        // Create a byte array to store file
+        byte[] fileContent = Files.readAllBytes(filename.toPath());
+
+        // Divide byte array in chunks
+        byte[][] chunks = new byte[(int)Math.ceil(fileContent.length / (double) 1021)][1021];
+
+        for(int i = 0, start = 0; i < chunks.length; i++) {
+
+            chunks[i] = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
+            start += sizeOfPacket;
+        }
+
+        return chunks;
     }
 
 

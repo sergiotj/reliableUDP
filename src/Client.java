@@ -45,12 +45,13 @@ public class Client {
         // clientSocket.close();
 
         boolean right = false;
+        String firstWord;
 
         while(!right) {
 
             sentence = inFromUser.readLine();
 
-            String firstWord = sentence.substring(0, sentence.indexOf(' '));
+            firstWord = sentence.substring(0, sentence.indexOf(' '));
 
             if (!firstWord.equals("get") || !firstWord.equals("put")) {
 
@@ -61,7 +62,23 @@ public class Client {
 
         }
 
+        String file = sentence.substring(1, sentence.indexOf(' '));
         System.out.println("Starting AgenteUDP to handle connection with server.");
+
+        AgentUDP agent = new AgentUDP();
+
+        if (firstWord.equals("get")) {
+
+            agent.receive(file);
+
+        }
+
+        if (firstWord.equals("put")) {
+
+            agent.send(file);
+
+        }
+
 
     }
 
