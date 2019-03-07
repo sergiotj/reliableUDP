@@ -8,12 +8,9 @@ import java.util.HashMap;
 
 public class AgentUDP extends Thread {
 
-    public void receive(DatagramSocket socket) throws IOException {
+    public void receptionDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts) throws IOException {
 
         int partsReceived = 0;
-        int sizeOfPacket = 1024;
-        int sizeOfHeader = 3;
-
         int iWritten = 0;
 
         FileOutputStream outToFile = new FileOutputStream(file);
