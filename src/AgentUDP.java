@@ -26,15 +26,35 @@ public class AgentUDP implements Runnable {
     @Override
     public void run() throws IOException {
 
-        // send response
-        DatagramPacket sendPacket = new DatagramPacket(buf, buf.length, address, port);
-        socket.send(sendPacket);
+        // receive what client wants
+        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+
+        // 25 cenas para o gajo decidir-se...
+        socket.setSoTimeout(25);
+        socket.receive(receivedPacket);
+
+        byte[] message = new byte[256];
+        message = receivedPacket.getData();
+
+        String filename = message[1];
+
+        // se é um put file
+        if (put file){
+            receptionDataFlow(socket, 100, 25, 10, filename);
+        }
+
+        if (get_file) {
+
+            dispatchDataFlow(socket, 100, 25, 10, filename);
+        }
 
     }
 
     public void send(String filename) {
 
         // verificar se o ficheiro existe na diretoria local...
+
+        // envia ao servidor o put... que o servidor vai receber no método run
 
         dispatchDataFlow();
         sendACK();
@@ -43,6 +63,8 @@ public class AgentUDP implements Runnable {
     public void receive(String filename) throws IOException {
 
         // verificar se o ficheiro existe no servidor
+
+        // envia ao servidor o get... que o servidor vai receber no método run
 
         receptionDataFlow();
         receiveACK(this.socket);
