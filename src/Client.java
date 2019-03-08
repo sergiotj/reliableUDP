@@ -24,30 +24,33 @@ public class Client {
         byte[] sendData = new byte[1024];
         byte[] receiveData = new byte[1024];
 
+        // 3 way handshake
         DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
         clientSocket.send(sendPacket);
 
-        DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-        clientSocket.receive(receivePacket);
+        // 3 way handshake
+        int success = AgentUDP.receiveACK(clientSocket);
 
-        String modifiedSentence = new String(receivePacket.getData());
-        System.out.println("FROM SERVER:" + modifiedSentence);
-
-        if (!modifiedSentence.equals("sucess")) {
+        if (success == -1) {
 
             System.out.println("Falha na conexão ao servidor");
             return;
         }
 
+        System.out.println("Está conectado ao servidor.");
+
+        // 3 way handshake
+        AgentUDP.sendACK(1, clientSocket, IPAddress, port);
+
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
         String sentence = inFromUser.readLine();
 
-        // clientSocket.close();
-
         boolean right = false;
-        String firstWord;
+        String firstWord = null;
 
         while(!right) {
+
+            System.out.println("Escreva: put file ou get file");
 
             sentence = inFromUser.readLine();
 
@@ -65,7 +68,7 @@ public class Client {
         String file = sentence.substring(1, sentence.indexOf(' '));
         System.out.println("Starting AgenteUDP to handle connection with server.");
 
-        AgentUDP agent = new AgentUDP();
+        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port);
 
         if (firstWord.equals("get")) {
 
@@ -79,7 +82,7 @@ public class Client {
 
         }
 
-
+        clientSocket.close();
     }
 
 }

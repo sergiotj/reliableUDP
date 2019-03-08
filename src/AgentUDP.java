@@ -16,10 +16,6 @@ public class AgentUDP implements Runnable {
     private InetAddress address;
     private int port;
 
-    public AgentUDP(){
-
-    };
-
     public AgentUDP(DatagramSocket socket, InetAddress address, int port) {
 
         this.socket = socket;
@@ -34,6 +30,22 @@ public class AgentUDP implements Runnable {
         DatagramPacket sendPacket = new DatagramPacket(buf, buf.length, address, port);
         socket.send(sendPacket);
 
+    }
+
+    public void send(String filename) {
+
+        // verificar se o ficheiro existe na diretoria local...
+
+        dispatchDataFlow();
+        sendACK();
+    }
+
+    public void receive(String filename) throws IOException {
+
+        // verificar se o ficheiro existe no servidor
+
+        receptionDataFlow();
+        receiveACK(this.socket);
     }
 
     public void receptionDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts, String filename) throws IOException {
@@ -189,19 +201,36 @@ public class AgentUDP implements Runnable {
         }
     }
 
-    private void sendAck(int seqNumber, DatagramSocket socket, InetAddress address, int port) throws IOException {
+    // envia ACK com o segmento que chegou com sucesso
+    public static void sendACK(int number, DatagramSocket socket, InetAddress address, int port) throws IOException {
 
         // send acknowledgement
-        byte[] ackPacket = new byte[2];
+        byte[] ackPacket = new byte[1];
 
-        ackPacket[0] = (byte) (seqNumber >> 8);
-        ackPacket[1] = (byte) (seqNumber);
+        ackPacket[0] = (byte) (number >> 8);
 
         // the datagram packet to be sent
         DatagramPacket acknowledgement = new DatagramPacket(ackPacket, ackPacket.length, address, port);
         socket.send(acknowledgement);
 
         System.out.println("Sent ack: Sequence Number = " + seqNumber);
+
+    }
+
+    public static int receiveACK(DatagramSocket socket) throws IOException {
+
+        // receive acknowledgement
+        byte[] ackPacket = new byte[1];
+
+        // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
+        DatagramPacket receivePacket = new DatagramPacket(ackPacket, ackPacket.length);
+        socket.receive(receivePacket);
+
+        // parsing to String
+        String sentence = new String(receivePacket.getData());
+        System.out.println("RECEIVED: " + sentence);
+
+        return Integer.parseInt(sentence);
     }
 
 }

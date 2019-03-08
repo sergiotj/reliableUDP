@@ -5,17 +5,10 @@ import java.net.InetAddress;
 
 public class Server {
 
-    private DatagramSocket socket;
-    private byte[] buf;
-
-    public Server() {
-
-        this.buf = new byte[256];
-    }
-
     public void startServer() throws IOException {
 
         DatagramSocket socket = new DatagramSocket(4445);
+        byte[] buf = new byte[256];
 
         while (true) {
 
