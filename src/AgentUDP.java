@@ -1,5 +1,6 @@
 import sun.management.Agent;
 
+import javax.xml.bind.DatatypeConverter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -7,7 +8,12 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class AgentUDP implements Runnable {
@@ -105,7 +111,7 @@ public class AgentUDP implements Runnable {
             byte[] newData = p.retrieveData(sizeOfPacket, sizeOfHeader);
 
             // Send acknowledgement
-            sendAck(p.getSeqNumber(), socket, address, port);
+            sendACK(p.getSeqNumber(), socket, address, port);
 
             // removes seqNumber from list of parts missing
             missingParts.remove(Integer.valueOf(p.getSeqNumber()));
@@ -175,7 +181,7 @@ public class AgentUDP implements Runnable {
 
                 System.arraycopy(chunks[seqNumber], 0, message, 3, 1021);
 
-                DatagramPacket sendPacket = new DatagramPacket(message, message.length, address, getPort());
+                DatagramPacket sendPacket = new DatagramPacket(message, message.length, address, port);
                 socket.send(sendPacket);
 
                 w--;
@@ -235,7 +241,7 @@ public class AgentUDP implements Runnable {
         DatagramPacket acknowledgement = new DatagramPacket(ackPacket, ackPacket.length, address, port);
         socket.send(acknowledgement);
 
-        System.out.println("Sent ack: Sequence Number = " + seqNumber);
+        System.out.println("Sent ack: Sequence Number = " + number);
 
     }
 
@@ -253,6 +259,22 @@ public class AgentUDP implements Runnable {
         System.out.println("RECEIVED: " + sentence);
 
         return Integer.parseInt(sentence);
+    }
+
+    private byte[] getHashFile(String filename) throws NoSuchAlgorithmException, IOException {
+
+        byte[] b = Files.readAllBytes(Paths.get(filename));
+
+        byte[] hash = MessageDigest.getInstance("MD5").digest(b);
+
+        return Arrays.copyOf(hash, 8);
+    }
+
+    private byte[] getHashChunk(byte[] chunks) throws NoSuchAlgorithmException {
+
+        byte[] hash = MessageDigest.getInstance("MD5").digest(chunks);
+
+        return Arrays.copyOf(hash, 8);
     }
 
 }
