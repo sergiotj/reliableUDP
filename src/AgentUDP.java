@@ -22,13 +22,19 @@ public class AgentUDP implements Runnable {
     private InetAddress address;
     private int port;
 
-    public AgentUDP(DatagramSocket socket, InetAddress address, int port) {
+    private int sizeOfPacket;
+    private int window;
+
+    public AgentUDP(DatagramSocket socket, InetAddress address, int port, int sizeOfPacket, int window) {
 
         this.socket = socket;
         this.address = address;
         this.port = port;
+        this.sizeOfPacket = sizeOfPacket;
+        this.window = window;
     }
 
+    // SERVIDOR
     @Override
     public void run() throws IOException {
 
@@ -46,7 +52,8 @@ public class AgentUDP implements Runnable {
 
         // se é um put file
         if (put file){
-            receptionDataFlow(socket, 100, 25, 10, filename);
+            
+            receptionDataFlow(socket, 10, filename);
         }
 
         if (get_file) {
@@ -76,7 +83,7 @@ public class AgentUDP implements Runnable {
         receiveACK(this.socket);
     }
 
-    public void receptionDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts, String filename) throws IOException {
+    public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
         int iWritten = 0;
 
@@ -96,22 +103,26 @@ public class AgentUDP implements Runnable {
             byte[] message = new byte[sizeOfPacket];
 
             DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
-            socket.setSoTimeout(0);
             socket.receive(receivedPacket);
 
-            message = receivedPacket.getData();
-
-            Packet p = new Packet(message);
-
-            // Get port and address for sending acknowledgment
-            InetAddress address = receivedPacket.getAddress();
-            int port = receivedPacket.getPort();
+            Packet p = Packet.bytesToPacket(message);
 
             // Retrieve data from message
-            byte[] newData = p.retrieveData(sizeOfPacket, sizeOfHeader);
+            byte[] newData = p.getData();
+
+            if (!Arrays.equals(p.getHash(), this.getHashChunk(newData))) {
+
+                System.out.println("Chegou um pacote corrompido. Será descartado...");
+                break;
+            }
 
             // Send acknowledgement
-            sendACK(p.getSeqNumber(), socket, address, port);
+            Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1);
+
+            byte[] ackpack = Ack.ackToBytes(ack);
+
+            DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
+            socket.send(sendPacket);
 
             // removes seqNumber from list of parts missing
             missingParts.remove(Integer.valueOf(p.getSeqNumber()));
@@ -137,63 +148,56 @@ public class AgentUDP implements Runnable {
                     iWritten++;
                 }
 
-                System.out.println("Ficheiro recebido com sucesso.");
+                if (Arrays.equals(getHashFile(filename), hash)) {
 
-                break;
+                    System.out.println("Ficheiro recebido com sucesso.");
+                    return;
+
+                }
+
+                else {
+
+                    System.out.println("Falha a receber o ficheiro");
+                    return;
+
+                }
+
             }
 
-            else {
-
-                // there are missing parts... so, while loop should continue
-                continue;
-            }
+            // there are missing parts... so, while loop should continue
         }
     }
 
-    public void dispatchDataFlow(DatagramSocket socket, int sizeOfPacket, int sizeOfHeader, int nrParts, String fileName) throws IOException {
+    public void dispatchDataFlow(DatagramSocket socket, String fileName) throws IOException, NoSuchAlgorithmException, ClassNotFoundException {
 
         File file = new File(fileName);
 
-        byte[][] chunks = Packet.fileToChunks(file, sizeOfPacket);
+        ArrayList<Packet> chunks = Packet.fileToChunks(file, sizeOfPacket);
 
-        // list of all chunks that were not sent with success to destiny
-        ArrayList<Integer> notSentWithSuccess = new ArrayList<>();
+        while (window > 0) {
 
-        for (int i = 0; i < nrParts; i++) {
+            for (Packet p : chunks) {
 
-            notSentWithSuccess.add(i);
-        }
+                p.addHash();
 
-        int sequenceNumber = 0;
-        int ackSequence = 0;
-        int w = 5;
+                byte[] message = Packet.packetToBytes(p);
 
-        while (w > 0) {
-
-            while (!notSentWithSuccess.isEmpty()) {
-
-                int seqNumber = notSentWithSuccess.get(0);
-
-                // Create message
-                byte[] message = new byte[1024];
-                message[0] = (byte) (seqNumber >> 8);
-                message[1] = (byte) (seqNumber);
-
-                System.arraycopy(chunks[seqNumber], 0, message, 3, 1021);
-
-                DatagramPacket sendPacket = new DatagramPacket(message, message.length, address, port);
+                DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
                 socket.send(sendPacket);
 
-                w--;
+                window--;
 
-                System.out.println("Sent: Sequence number = " + sequenceNumber);
+                if (window == 0) break;
+
+                System.out.println("Sent: Sequence number = " + p.getSeqNumber());
             }
 
-            // receiving acknowledgments
             while (true) {
 
+                // receiving acknowledgments
+
                 // Create another packet by setting a byte array and creating data gram packet
-                byte[] ack = new byte[2];
+                byte[] ack = new byte[10];
                 DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
                 try {
@@ -202,7 +206,19 @@ public class AgentUDP implements Runnable {
                     socket.setSoTimeout(50);
                     socket.receive(ackpack);
 
-                    ackSequence = ((ack[0] & 0xff) << 8) + (ack[1] & 0xff);
+                    Ack a = Ack.bytesToAck(ack);
+
+                    if (a.getStatus() == 1 && a.getType() == TypeAck.DATAFLOW){
+
+                        int ackReceived = a.getSeqNumber();
+
+                        for(Packet p : chunks) {
+
+                            if (p.getSeqNumber() == ackReceived) chunks.remove(p);
+                        }
+
+                        System.out.println("Ack received: Sequence Number = " + ackReceived);
+                    }
 
                 }
 
@@ -210,55 +226,18 @@ public class AgentUDP implements Runnable {
                 catch (SocketTimeoutException e) {
 
                     System.out.println("Socket timed out waiting for ACKs");
+                    return;
                 }
 
-                // removes seqNumber from list
-                notSentWithSuccess.remove(Integer.valueOf(ackSequence));
-                w++;
+                window++;
 
-                System.out.println("Ack received: Sequence Number = " + ackSequence);
-
-                if (notSentWithSuccess.isEmpty()) {
+                if (chunks.isEmpty()) {
 
                     System.out.println("Envio realizado com sucesso.");
                     return;
                 }
-
-                break;
             }
         }
-    }
-
-    // envia ACK com o segmento que chegou com sucesso
-    public static void sendACK(int number, DatagramSocket socket, InetAddress address, int port) throws IOException {
-
-        // send acknowledgement
-        byte[] ackPacket = new byte[1];
-
-        ackPacket[0] = (byte) (number >> 8);
-
-        // the datagram packet to be sent
-        DatagramPacket acknowledgement = new DatagramPacket(ackPacket, ackPacket.length, address, port);
-        socket.send(acknowledgement);
-
-        System.out.println("Sent ack: Sequence Number = " + number);
-
-    }
-
-    public static int receiveACK(DatagramSocket socket) throws IOException {
-
-        // receive acknowledgement
-        byte[] ackPacket = new byte[1];
-
-        // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
-        DatagramPacket receivePacket = new DatagramPacket(ackPacket, ackPacket.length);
-        socket.receive(receivePacket);
-
-        // parsing to String
-        String sentence = new String(receivePacket.getData());
-        System.out.println("RECEIVED: " + sentence);
-
-        return Integer.parseInt(sentence);
     }
 
     private byte[] getHashFile(String filename) throws NoSuchAlgorithmException, IOException {
