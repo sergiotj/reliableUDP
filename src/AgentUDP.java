@@ -45,7 +45,6 @@ public class AgentUDP implements Runnable {
             // 25 cenas para o gajo decidir-se...
             socket.setSoTimeout(25);
             socket.receive(receivedPacket);
-
             message = receivedPacket.getData();
 
             Packet p = Packet.bytesToPacket(message);
@@ -136,6 +135,8 @@ public class AgentUDP implements Runnable {
 
             DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
             socket.receive(receivedPacket);
+
+            message = receivedPacket.getData();
 
             Packet p = Packet.bytesToPacket(message);
 
@@ -233,6 +234,8 @@ public class AgentUDP implements Runnable {
                     // set the socket timeout for the packet acknowledgment
                     socket.setSoTimeout(50);
                     socket.receive(ackpack);
+
+                    ack = ackpack.getData();
 
                     Ack a = Ack.bytesToAck(ack);
 

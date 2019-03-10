@@ -4,6 +4,7 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.security.NoSuchAlgorithmException;
 
 public class Client {
 
@@ -16,7 +17,7 @@ public class Client {
         this.sizeOfPacket = sizeOfPacket;
     }
 
-    public void startClient(String args[]) throws IOException, ClassNotFoundException {
+    public void startClient(String args[]) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
         if (!args[0].equals("connect") && args.length != 2) {
 
@@ -108,7 +109,7 @@ public class Client {
 
             cli.startClient(args);
 
-        } catch (IOException | ClassNotFoundException exc) {
+        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException exc) {
 
             exc.printStackTrace();
         }
