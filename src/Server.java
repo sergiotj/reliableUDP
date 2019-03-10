@@ -14,7 +14,7 @@ public class Server {
         this.sizeOfPacket = sizeOfPacket;
     }
 
-    public void startServer() throws IOException {
+    public void startServer() throws IOException, ClassNotFoundException {
 
         DatagramSocket socket = new DatagramSocket(4445);
         byte[] buf = new byte[256];
@@ -24,14 +24,13 @@ public class Server {
             System.out.println("Server started at port 4445. Waiting for connection...");
 
             // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
-            DatagramPacket receivePacket = new DatagramPacket(buf, buf.length);
+            byte[] ack = new byte[10];
+            DatagramPacket receivePacket = new DatagramPacket(ack, ack.length);
             socket.receive(receivePacket);
 
-            // parsing to String
-            String sentence = new String(receivePacket.getData());
-            System.out.println("RECEIVED: " + sentence);
+            Ack a = Ack.bytesToAck(receivePacket.getData());
 
-            if (!sentence.equals("1")) {
+            if (a.getStatus() != 1) {
                 return;
             }
 
@@ -56,7 +55,7 @@ public class Server {
 
             sv.startServer();
 
-        } catch (IOException ioex) {
+        } catch (IOException | ClassNotFoundException ioex) {
 
             ioex.printStackTrace();
         }

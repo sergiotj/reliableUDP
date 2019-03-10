@@ -1,6 +1,6 @@
 import java.io.*;
 
-public class Ack {
+public class Ack implements Serializable {
 
     private TypeAck type;
     private int seqNumber;

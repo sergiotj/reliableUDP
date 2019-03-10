@@ -5,7 +5,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class Packet {
+public class Packet implements Serializable {
 
     private byte[] data;
     private int seqNumber;
