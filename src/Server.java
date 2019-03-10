@@ -32,7 +32,7 @@ public class Server {
 
             System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
 
-            AgentUDP agent = new AgentUDP(socket, address, portClient);
+            AgentUDP agent = new AgentUDP(socket, address, portClient, 100, 5);
             Thread t1 = new Thread(agent);
             t1.start();
 

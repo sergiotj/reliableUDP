@@ -1,5 +1,4 @@
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.DatagramPacket;
@@ -21,11 +20,9 @@ public class Client {
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
-        byte[] sendData = new byte[1024];
-        byte[] receiveData = new byte[1024];
-
-        // 3 way handshake
-        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, IPAddress, port);
+        Ack ack = new Ack(TypeAck.CONTROL, 1);
+        byte[] ackB = Ack.ackToBytes(ack);
+        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
         clientSocket.send(sendPacket);
 
         // 3 way handshake
@@ -40,7 +37,10 @@ public class Client {
         System.out.println("Está conectado ao servidor.");
 
         // 3 way handshake
-        AgentUDP.sendACK(1, clientSocket, IPAddress, port);
+        Ack ack1 = new Ack(TypeAck.CONTROL, 1);
+        byte[] ackB1 = Ack.ackToBytes(ack1);
+        DatagramPacket sendPacket1 = new DatagramPacket(ackB1, ackB1.length, IPAddress, port);
+        clientSocket.send(sendPacket1);
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
         String sentence = inFromUser.readLine();
@@ -68,7 +68,7 @@ public class Client {
         String file = sentence.substring(1, sentence.indexOf(' '));
         System.out.println("Starting AgenteUDP to handle connection with server.");
 
-        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port);
+        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, 100, 5);
 
         if (firstWord.equals("get")) {
 

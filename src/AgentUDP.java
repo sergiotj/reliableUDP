@@ -36,7 +36,9 @@ public class AgentUDP implements Runnable {
 
     // SERVIDOR
     @Override
-    public void run() throws IOException {
+    public void run() throws IOException, ClassNotFoundException {
+
+        byte[] message = new byte[256];
 
         // receive what client wants
         DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
@@ -45,14 +47,15 @@ public class AgentUDP implements Runnable {
         socket.setSoTimeout(25);
         socket.receive(receivedPacket);
 
-        byte[] message = new byte[256];
         message = receivedPacket.getData();
 
-        String filename = message[1];
+        Packet p = Packet.bytesToPacket(message);
+
+        String filename = p.getOthers();
 
         // se é um put file
         if (put file){
-            
+
             receptionDataFlow(socket, 10, filename);
         }
 
