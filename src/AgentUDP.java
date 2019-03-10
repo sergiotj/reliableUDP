@@ -1,6 +1,3 @@
-import sun.management.Agent;
-
-import javax.xml.bind.DatatypeConverter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -60,13 +57,13 @@ public class AgentUDP implements Runnable {
             // se é um put file
             if (operation.equals("put")){
 
-                this.receive(filename);
+                this.receiveInServer(filename);
             }
 
             // se é um get file
             if (operation.equals("get")){
 
-                this.send(filename);
+                this.sendInServer(filename);
             }
 
         } catch (IOException | ClassNotFoundException exc) {
@@ -77,7 +74,18 @@ public class AgentUDP implements Runnable {
 
     }
 
-    public void send(String filename) {
+    public void receiveInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
+
+        // manda ACK
+        // recebe número de partes e hash do ficheiro
+
+        int nrParts = 0;
+        byte[] hashFile = null;
+
+        receptionDataFlow(this.socket, nrParts, filename, hashFile);
+    }
+
+    public void sendInServer(String filename) {
 
         // manda ACK e espera ACK... tem de enviar o número de partes
 
@@ -85,13 +93,27 @@ public class AgentUDP implements Runnable {
         sendACK();
     }
 
-    public void receive(String filename) throws IOException {
+    public void receiveInServer(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
-        // manda ACK e espera ACK... tem de receber o número de partes
+        // manda ACK
+        // recebe número de partes e hash do ficheiro
+        // envia ACK
 
-        receptionDataFlow();
+        int nrParts = 0;
+        byte[] hashFile = null;
+
+        receptionDataFlow(this.socket, nrParts, filename, hashFile);
         receiveACK(this.socket);
     }
+
+    public void sendInClient(String filename) {
+
+        // manda ACK e espera ACK... tem de enviar o número de partes
+
+        dispatchDataFlow(socket, 100, 25, 10, filename);
+        sendACK();
+    }
+
 
     public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 

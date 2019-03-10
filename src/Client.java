@@ -87,13 +87,13 @@ public class Client {
 
         if (firstWord.equals("get")) {
 
-            agent.receive(file);
+            agent.receiveInClient(file);
 
         }
 
         if (firstWord.equals("put")) {
 
-            agent.send(file);
+            agent.sendInClient(file);
 
         }
 

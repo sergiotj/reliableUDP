@@ -54,34 +54,16 @@ public class Packet {
         this.seqNumber = seqNumber;
     }
 
-    public byte[] retrieveData(int sizeOfPacket, int sizeOfHeader) {
-
-        byte[] fileByteArray = new byte[sizeOfPacket - sizeOfHeader];
-
-        // Retrieve data from message
-        System.arraycopy(this.data, sizeOfHeader, fileByteArray, 0, sizeOfPacket - sizeOfHeader);
-
-        return fileByteArray;
-    }
-
     public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket) throws IOException {
 
         // Create a byte array to store file
         byte[] fileContent = Files.readAllBytes(filename.toPath());
 
-        // Divide byte array in chunks
-        byte[][] chunks = new byte[(int) Math.ceil(fileContent.length/(double) 1021)][1021];
-
-        for(int i = 0, start = 0; i < chunks.length; i++) {
-
-            chunks[i] = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
-            start += sizeOfPacket;
-        }
-
-        int i = 0;
-
         ArrayList<Packet> packets = new ArrayList<>();
-        for(byte[] chunk : chunks){
+
+        for(int i = 0, start = 0; i < fileContent.length; i++) {
+
+            byte[] chunk = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
 
             Packet p = new Packet(chunk);
 
@@ -89,8 +71,7 @@ public class Packet {
 
             packets.add(p);
 
-            i++;
-
+            start += sizeOfPacket;
         }
 
         return packets;
