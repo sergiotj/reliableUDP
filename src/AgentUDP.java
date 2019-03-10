@@ -73,45 +73,137 @@ public class AgentUDP implements Runnable {
 
     }
 
+    ///////////////////////////////////
+    /// CLIENT DOWNLOADING
+    ///////////////////////////////////
     public void receiveInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
-        // manda ACK
-        // recebe número de partes e hash do ficheiro
+        // envia get file e o servidor vai verificar se tem o ficheiro
+
+        // recebe ACK
+        Ack a = receiveStatusAck();
+        if (a.getStatus() != 1) {
+            return;
+        }
+
         // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe hash e nrParts do ficheiro
 
         int nrParts = 0;
         byte[] hashFile = null;
 
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe ficheiro
         receptionDataFlow(this.socket, nrParts, filename, hashFile);
+
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe ACK
+        Ack a1 = receiveStatusAck();
+        if (a1.getStatus() != 1) {
+            return;
+        }
     }
 
-    public void sendInServer(String filename) {
+    public void sendInServer(String filename) throws IOException, ClassNotFoundException {
 
-        // manda ACK e espera ACK... tem de enviar o número de partes
+        // verifica se tem o ficheiro
 
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe ACK
+        Ack a = receiveStatusAck();
+        if (a.getStatus() != 1) {
+            return;
+        }
+
+        // envia hash e nrParts do ficheiro
+
+        // recebe ACK
+        Ack a1 = receiveStatusAck();
+        if (a1.getStatus() != 1) {
+            return;
+        }
+
+        // envia ficheiro
         dispatchDataFlow(socket, 100, 25, 10, filename);
-        sendACK();
+
+        // recebe ACK
+        Ack a2 = receiveStatusAck();
+        if (a2.getStatus() != 1) {
+            return;
+        }
+
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
     }
 
+    ///////////////////////////////////
+    /// CLIENT UPLOADING
+    ///////////////////////////////////
     public void receiveInServer(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
-        // manda ACK
-        // recebe número de partes e hash do ficheiro
+        // recebe pacote com o nome do ficheiro // FEITO NO RUN LOGO AQUI NÃO SE FAZ
+
         // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe hash e nrParts
 
         int nrParts = 0;
         byte[] hashFile = null;
 
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe ficheiro
         receptionDataFlow(this.socket, nrParts, filename, hashFile);
-        receiveACK(this.socket);
+
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        // recebe ACK
+        Ack a = receiveStatusAck();
+        if (a.getStatus() != 1) {
+            return;
+        }
     }
 
-    public void sendInClient(String filename) {
+    public void sendInClient(String filename) throws IOException, ClassNotFoundException {
 
-        // manda ACK e espera ACK... tem de enviar o número de partes
+        // Envia pacote a dizer que quer mandar ficheiro
 
+        // recebe ACK
+        Ack a = receiveStatusAck();
+        if (a.getStatus() != 1) {
+            return;
+        }
+
+        // envia hash e nrParts
+
+        // recebe ACK
+        Ack a1 = receiveStatusAck();
+        if (a1.getStatus() != 1) {
+            return;
+        }
+
+        // envia ficheiro
         dispatchDataFlow(socket, 100, 25, 10, filename);
-        sendACK();
+
+        // recebe ACK
+        Ack a2 = receiveStatusAck();
+        if (a2.getStatus() != 1) {
+            return;
+        }
+
+        // envia ACK
+        this.sendStatusAck(TypeAck.CONTROL, 1);
     }
 
 
@@ -152,9 +244,7 @@ public class AgentUDP implements Runnable {
 
             // Send acknowledgement
             Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1);
-
             byte[] ackpack = Ack.ackToBytes(ack);
-
             DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
             socket.send(sendPacket);
 
@@ -211,7 +301,6 @@ public class AgentUDP implements Runnable {
                 p.addHash();
 
                 byte[] message = Packet.packetToBytes(p);
-
                 DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
                 socket.send(sendPacket);
 
@@ -286,6 +375,25 @@ public class AgentUDP implements Runnable {
         byte[] hash = MessageDigest.getInstance("MD5").digest(chunks);
 
         return Arrays.copyOf(hash, 8);
+    }
+
+    private void sendStatusAck(TypeAck type, int status) throws IOException {
+
+        Ack ack = new Ack(type, status);
+        byte[] ackpack = Ack.ackToBytes(ack);
+        DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
+        socket.send(sendPacket);
+    }
+
+    private Ack receiveStatusAck() throws IOException, ClassNotFoundException {
+
+        byte[] ack = new byte[10];
+        DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
+        socket.setSoTimeout(50);
+        socket.receive(ackpack);
+        ack = ackpack.getData();
+
+        return Ack.bytesToAck(ack);
     }
 
 }
