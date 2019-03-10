@@ -17,14 +17,15 @@ public class Server {
     public void startServer() throws IOException, ClassNotFoundException {
 
         DatagramSocket socket = new DatagramSocket(4445);
-        byte[] buf = new byte[256];
+
+        System.out.println("Server started at port 4445.");
 
         while (true) {
 
-            System.out.println("Server started at port 4445. Waiting for connection...");
+            System.out.println("Waiting for connection...");
 
             // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
-            byte[] ack = new byte[10];
+            byte[] ack = new byte[200];
             DatagramPacket receivePacket = new DatagramPacket(ack, ack.length);
             socket.receive(receivePacket);
 
