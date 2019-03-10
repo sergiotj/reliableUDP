@@ -5,6 +5,15 @@ import java.net.InetAddress;
 
 public class Server {
 
+    private int window;
+    private int sizeOfPacket;
+
+    public Server(int window, int sizeOfPacket) {
+
+        this.window = window;
+        this.sizeOfPacket = sizeOfPacket;
+    }
+
     public void startServer() throws IOException {
 
         DatagramSocket socket = new DatagramSocket(4445);
@@ -32,7 +41,7 @@ public class Server {
 
             System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
 
-            AgentUDP agent = new AgentUDP(socket, address, portClient, 100, 5);
+            AgentUDP agent = new AgentUDP(socket, address, portClient, this.sizeOfPacket, this.window);
             Thread t1 = new Thread(agent);
             t1.start();
 
@@ -41,7 +50,7 @@ public class Server {
 
     public static void main(String [] args) {
 
-        Server sv = new Server();
+        Server sv = new Server(5, 100);
 
         try {
 

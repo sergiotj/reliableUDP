@@ -60,18 +60,18 @@ public class AgentUDP implements Runnable {
             // se é um put file
             if (operation.equals("put")){
 
-                receptionDataFlow(socket, 10, filename);
+                this.receive(filename);
             }
 
             // se é um get file
             if (operation.equals("get")){
 
-                dispatchDataFlow(socket, 100, 25, 10, filename);
+                this.send(filename);
             }
 
-        } catch (IOException ioex) {
+        } catch (IOException | ClassNotFoundException exc) {
 
-            ioex.printStackTrace();
+            exc.printStackTrace();
 
         }
 
@@ -79,19 +79,15 @@ public class AgentUDP implements Runnable {
 
     public void send(String filename) {
 
-        // verificar se o ficheiro existe na diretoria local...
+        // manda ACK e espera ACK... tem de enviar o número de partes
 
-        // envia ao servidor o put... que o servidor vai receber no método run
-
-        dispatchDataFlow();
+        dispatchDataFlow(socket, 100, 25, 10, filename);
         sendACK();
     }
 
     public void receive(String filename) throws IOException {
 
-        // verificar se o ficheiro existe no servidor
-
-        // envia ao servidor o get... que o servidor vai receber no método run
+        // manda ACK e espera ACK... tem de receber o número de partes
 
         receptionDataFlow();
         receiveACK(this.socket);

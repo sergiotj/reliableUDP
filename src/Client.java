@@ -7,6 +7,15 @@ import java.net.InetAddress;
 
 public class Client {
 
+    private int window;
+    private int sizeOfPacket;
+
+    public Client(int window, int sizeOfPacket) {
+
+        this.window = window;
+        this.sizeOfPacket = sizeOfPacket;
+    }
+
     public void startClient(String args[]) throws IOException, ClassNotFoundException {
 
         if (!args[0].equals("connect") && args.length != 2) {
@@ -74,7 +83,7 @@ public class Client {
         String file = sentence.substring(1, sentence.indexOf(' '));
         System.out.println("Starting AgenteUDP to handle connection with server.");
 
-        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, 100, 5);
+        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, this.sizeOfPacket, this.window);
 
         if (firstWord.equals("get")) {
 
@@ -91,17 +100,17 @@ public class Client {
         clientSocket.close();
     }
 
-    public static void main(String args[]) throws ClassNotFoundException {
+    public static void main(String args[]) {
 
-        Client cli = new Client();
+        Client cli = new Client(5, 100);
 
         try {
 
             cli.startClient(args);
 
-        } catch (IOException ioex) {
+        } catch (IOException | ClassNotFoundException exc) {
 
-            ioex.printStackTrace();
+            exc.printStackTrace();
         }
     }
 }
