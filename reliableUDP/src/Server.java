@@ -25,7 +25,7 @@ public class Server {
             System.out.println("Waiting for connection...");
 
             // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
-            byte[] ack = new byte[200];
+            byte[] ack = new byte[50];
             DatagramPacket receivePacket = new DatagramPacket(ack, ack.length);
             socket.receive(receivePacket);
 
