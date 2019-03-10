@@ -65,7 +65,7 @@ public class AgentUDP implements Runnable {
                 this.sendInServer(filename);
             }
 
-        } catch (IOException | ClassNotFoundException exc) {
+        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException exc) {
 
             exc.printStackTrace();
 
@@ -77,6 +77,7 @@ public class AgentUDP implements Runnable {
 
         // manda ACK
         // recebe número de partes e hash do ficheiro
+        // envia ACK
 
         int nrParts = 0;
         byte[] hashFile = null;
