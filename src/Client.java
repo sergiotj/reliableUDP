@@ -37,7 +37,7 @@ public class Client {
 
         // 3 way handshake
 
-        byte[] message = new byte[50];
+        byte[] message = new byte[200];
         DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
         clientSocket.receive(receivedPacket);
         message = receivedPacket.getData();
@@ -77,6 +77,7 @@ public class Client {
             if (!firstWord.equals("get") || !firstWord.equals("put")) {
 
                 System.out.println("Operação inválida");
+
             } else right = true;
 
         }

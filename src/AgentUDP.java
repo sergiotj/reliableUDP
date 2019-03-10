@@ -37,6 +37,9 @@ public class AgentUDP implements Runnable {
 
         try {
 
+            // 3 way handshake
+            this.sendStatusAck(TypeAck.CONTROL, 1);
+
             byte[] message = new byte[50];
 
             // receive what client wants
