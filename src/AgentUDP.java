@@ -382,6 +382,7 @@ public class AgentUDP implements Runnable {
         Ack ack = new Ack(type, status);
         byte[] ackpack = Ack.ackToBytes(ack);
         DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
+
         socket.send(sendPacket);
     }
 
@@ -389,8 +390,10 @@ public class AgentUDP implements Runnable {
 
         byte[] ack = new byte[10];
         DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
+
         socket.setSoTimeout(50);
         socket.receive(ackpack);
+
         ack = ackpack.getData();
 
         return Ack.bytesToAck(ack);
