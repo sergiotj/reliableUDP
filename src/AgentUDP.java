@@ -110,7 +110,7 @@ public class AgentUDP implements Runnable {
         }
     }
 
-    public void sendInServer(String filename) throws IOException, ClassNotFoundException {
+    public void sendInServer(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
         // verifica se tem o ficheiro
 
@@ -132,7 +132,7 @@ public class AgentUDP implements Runnable {
         }
 
         // envia ficheiro
-        dispatchDataFlow(socket, 100, 25, 10, filename);
+        dispatchDataFlow(socket, filename);
 
         // recebe ACK
         Ack a2 = receiveStatusAck();
@@ -175,7 +175,7 @@ public class AgentUDP implements Runnable {
         }
     }
 
-    public void sendInClient(String filename) throws IOException, ClassNotFoundException {
+    public void sendInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
         // Envia pacote a dizer que quer mandar ficheiro
 
@@ -194,7 +194,7 @@ public class AgentUDP implements Runnable {
         }
 
         // envia ficheiro
-        dispatchDataFlow(socket, 100, 25, 10, filename);
+        dispatchDataFlow(socket, filename);
 
         // recebe ACK
         Ack a2 = receiveStatusAck();
