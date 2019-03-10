@@ -34,34 +34,45 @@ public class AgentUDP implements Runnable {
         this.window = window;
     }
 
-    // SERVIDOR
+    // SERVER
     @Override
-    public void run() throws IOException, ClassNotFoundException {
+    public void run() {
 
-        byte[] message = new byte[256];
+        try {
 
-        // receive what client wants
-        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+            byte[] message = new byte[50];
 
-        // 25 cenas para o gajo decidir-se...
-        socket.setSoTimeout(25);
-        socket.receive(receivedPacket);
+            // receive what client wants
+            DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
 
-        message = receivedPacket.getData();
+            // 25 cenas para o gajo decidir-se...
+            socket.setSoTimeout(25);
+            socket.receive(receivedPacket);
 
-        Packet p = Packet.bytesToPacket(message);
+            message = receivedPacket.getData();
 
-        String filename = p.getOthers();
+            Packet p = Packet.bytesToPacket(message);
 
-        // se é um put file
-        if (put file){
+            String filename = p.getFilename();
 
-            receptionDataFlow(socket, 10, filename);
-        }
+            String operation = p.getOperation();
 
-        if (get_file) {
+            // se é um put file
+            if (operation.equals("put")){
 
-            dispatchDataFlow(socket, 100, 25, 10, filename);
+                receptionDataFlow(socket, 10, filename);
+            }
+
+            // se é um get file
+            if (operation.equals("get")){
+
+                dispatchDataFlow(socket, 100, 25, 10, filename);
+            }
+
+        } catch (IOException ioex) {
+
+            ioex.printStackTrace();
+
         }
 
     }
@@ -155,18 +166,14 @@ public class AgentUDP implements Runnable {
 
                     System.out.println("Ficheiro recebido com sucesso.");
                     return;
-
                 }
 
                 else {
 
                     System.out.println("Falha a receber o ficheiro");
                     return;
-
                 }
-
             }
-
             // there are missing parts... so, while loop should continue
         }
     }

@@ -10,21 +10,28 @@ public class Packet {
     private byte[] data;
     private int seqNumber;
     private byte[] hash;
-    private String others;
+    private String filename;
+    private String operation;
 
     public Packet(byte[] fullPacket) {
 
         this.data = fullPacket;
     }
 
-    public Packet(String others) {
+    public Packet(String filename, String operation) {
 
-        this.others = others;
+        this.filename = filename;
+        this.operation = operation;
     }
 
-    public String getOthers() {
+    public String getFilename() {
 
-        return this.others;
+        return this.filename;
+    }
+
+    public String getOperation() {
+
+        return this.operation;
     }
 
     public int getSeqNumber() {

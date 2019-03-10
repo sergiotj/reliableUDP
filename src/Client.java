@@ -7,7 +7,7 @@ import java.net.InetAddress;
 
 public class Client {
 
-    public static void main(String args[]) throws IOException {
+    public void startClient(String args[]) throws IOException, ClassNotFoundException {
 
         if (!args[0].equals("connect") && args.length != 2) {
 
@@ -26,7 +26,15 @@ public class Client {
         clientSocket.send(sendPacket);
 
         // 3 way handshake
-        int success = AgentUDP.receiveACK(clientSocket);
+
+        byte[] message = new byte[50];
+        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+        clientSocket.receive(receivedPacket);
+        message = receivedPacket.getData();
+
+        Ack a = Ack.bytesToAck(message);
+
+        int success = a.getStatus();
 
         if (success == -1) {
 
@@ -48,7 +56,7 @@ public class Client {
         boolean right = false;
         String firstWord = null;
 
-        while(!right) {
+        while (!right) {
 
             System.out.println("Escreva: put file ou get file");
 
@@ -59,9 +67,7 @@ public class Client {
             if (!firstWord.equals("get") || !firstWord.equals("put")) {
 
                 System.out.println("Operação inválida");
-            }
-
-            else right = true;
+            } else right = true;
 
         }
 
@@ -85,4 +91,17 @@ public class Client {
         clientSocket.close();
     }
 
+    public static void main(String args[]) throws ClassNotFoundException {
+
+        Client cli = new Client();
+
+        try {
+
+            cli.startClient(args);
+
+        } catch (IOException ioex) {
+
+            ioex.printStackTrace();
+        }
+    }
 }
