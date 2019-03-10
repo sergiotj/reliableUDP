@@ -1,3 +1,7 @@
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -88,31 +92,33 @@ public class Packet implements Serializable {
 
     public static Packet bytesToPacket(byte[] bytes) throws IOException, ClassNotFoundException {
 
-        ByteArrayInputStream bytesIn = new ByteArrayInputStream(bytes);
-        ObjectInputStream ois = new ObjectInputStream(bytesIn);
+        Kryo kryo = new Kryo();
+        kryo.register(Packet.class);
 
-        Packet p = (Packet) ois.readObject();
+        ByteArrayInputStream stream = new ByteArrayInputStream(bytes);
+        Input input = new Input(stream);
 
-        ois.close();
+        Packet p = kryo.readObject(input, Packet.class);
+
+        input.close();
 
         return p;
     }
 
 
-    public static byte[] packetToBytes(Packet p) throws IOException {
+    public static byte[] packetToBytes(Packet p) {
 
-        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(bytesOut);
+        Kryo kryo = new Kryo();
+        kryo.register(Packet.class);
 
-        oos.writeObject(p);
-        oos.flush();
+        ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
-        byte[] bytes = bytesOut.toByteArray();
+        Output output = new Output(stream);
+        kryo.writeObject(output, p);
 
-        bytesOut.close();
-        oos.close();
+        output.close();
 
-        return bytes;
+        return stream.toByteArray();
     }
 
 
