@@ -1,3 +1,5 @@
+import com.esotericsoftware.kryo.Kryo;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -22,6 +24,8 @@ public class AgentUDP implements Runnable {
     private int sizeOfPacket;
     private int window;
 
+    private Kryo kryo;
+
     public AgentUDP(DatagramSocket socket, InetAddress address, int port, int sizeOfPacket, int window) {
 
         this.socket = socket;
@@ -29,6 +33,7 @@ public class AgentUDP implements Runnable {
         this.port = port;
         this.sizeOfPacket = sizeOfPacket;
         this.window = window;
+        this.kryo = new Kryo();
     }
 
     // SERVER
@@ -40,21 +45,30 @@ public class AgentUDP implements Runnable {
             // 3 way handshake
             this.sendStatusAck(TypeAck.CONTROL, 1);
 
-            byte[] message = new byte[50];
+            Ack a = this.receiveStatusAck();
+
+            if (a.getStatus() != 1) {
+                return;
+            }
+
+            byte[] message = new byte[200];
 
             // receive what client wants
             DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
 
             // 25 cenas para o gajo decidir-se...
-            socket.setSoTimeout(25);
+            // socket.setSoTimeout(25);
             socket.receive(receivedPacket);
             message = receivedPacket.getData();
 
-            Packet p = Packet.bytesToPacket(message);
+            Packet p = Packet.bytesToPacket(this.kryo,message, TypePk.FNOP);
 
             String filename = p.getFilename();
 
             String operation = p.getOperation();
+
+            System.out.println("Nome do ficheiro: " + filename);
+            System.out.println("Operação recebida: " + operation);
 
             // se é um put file
             if (operation.equals("put")){
@@ -82,6 +96,13 @@ public class AgentUDP implements Runnable {
     public void receiveInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
         // envia get file e o servidor vai verificar se tem o ficheiro
+        Packet p = new Packet(filename, "get");
+
+        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
+        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
+        socket.send(sendPacket);
+
+        System.out.println("enviou pacote de get");
 
         // recebe ACK
         Ack a = receiveStatusAck();
@@ -93,12 +114,20 @@ public class AgentUDP implements Runnable {
         this.sendStatusAck(TypeAck.CONTROL, 1);
 
         // recebe hash e nrParts do ficheiro
+        byte[] message1 = new byte[sizeOfPacket];
 
-        int nrParts = 0;
-        byte[] hashFile = null;
+        DatagramPacket receivedPacket = new DatagramPacket(message1, message1.length);
+        socket.receive(receivedPacket);
+        message1 = receivedPacket.getData();
+        Packet p1 = Packet.bytesToPacket(this.kryo, message1, TypePk.HASHPARTS);
+
+        int nrParts = p1.getParts();
+        byte[] hashFile = p1.getHash();
 
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
+
+        System.out.println("preparado para receber");
 
         // recebe ficheiro
         receptionDataFlow(this.socket, nrParts, filename, hashFile);
@@ -117,6 +146,16 @@ public class AgentUDP implements Runnable {
 
         // verifica se tem o ficheiro
 
+        /*
+        System.out.println("Present Project Directory : "+ System.getProperty("user.dir"));
+        File f = new File(filename);
+        if(!f.isFile()) {
+
+            System.out.println("FICHEIRO NÃO EXISTE!");
+            return;
+        }
+        */
+
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
 
@@ -126,13 +165,23 @@ public class AgentUDP implements Runnable {
             return;
         }
 
-        // envia hash e nrParts do ficheiro
+        // envia hash e nrParts
+        byte[] hash = this.getHashFile(filename);
+        int nrParts = Packet.fileToNrParts(filename, sizeOfPacket);
+
+        Packet p = new Packet(hash, nrParts);
+
+        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.HASHPARTS);
+        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
+        socket.send(sendPacket);
 
         // recebe ACK
         Ack a1 = receiveStatusAck();
         if (a1.getStatus() != 1) {
             return;
         }
+
+        System.out.println("preparado para enviar");
 
         // envia ficheiro
         dispatchDataFlow(socket, filename);
@@ -157,10 +206,16 @@ public class AgentUDP implements Runnable {
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
 
-        // recebe hash e nrParts
+        // recebe hash e nrParts do ficheiro
+        byte[] message = new byte[sizeOfPacket];
 
-        int nrParts = 0;
-        byte[] hashFile = null;
+        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+        socket.receive(receivedPacket);
+        message = receivedPacket.getData();
+        Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.HASHPARTS);
+
+        int nrParts = p.getParts();
+        byte[] hashFile = p.getHash();
 
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
@@ -181,6 +236,11 @@ public class AgentUDP implements Runnable {
     public void sendInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
         // Envia pacote a dizer que quer mandar ficheiro
+        Packet p = new Packet(filename, "put");
+
+        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
+        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
+        socket.send(sendPacket);
 
         // recebe ACK
         Ack a = receiveStatusAck();
@@ -189,6 +249,14 @@ public class AgentUDP implements Runnable {
         }
 
         // envia hash e nrParts
+        byte[] hash = this.getHashFile(filename);
+        int nrParts = Packet.fileToNrParts(filename, sizeOfPacket);
+
+        Packet p1 = new Packet(hash, nrParts);
+
+        byte[] message1 = Packet.packetToBytes(this.kryo, p1, TypePk.HASHPARTS);
+        DatagramPacket sendPacket1 = new DatagramPacket(message1, message1.length, this.address, this.port);
+        socket.send(sendPacket1);
 
         // recebe ACK
         Ack a1 = receiveStatusAck();
@@ -234,7 +302,7 @@ public class AgentUDP implements Runnable {
 
             message = receivedPacket.getData();
 
-            Packet p = Packet.bytesToPacket(message);
+            Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.DATA);
 
             // Retrieve data from message
             byte[] newData = p.getData();
@@ -297,13 +365,15 @@ public class AgentUDP implements Runnable {
 
         ArrayList<Packet> chunks = Packet.fileToChunks(file, sizeOfPacket);
 
+        System.out.println("TAMANHO DO ARRAY:" + chunks.size());
+
         while (window > 0) {
 
             for (Packet p : chunks) {
 
                 p.addHash();
 
-                byte[] message = Packet.packetToBytes(p);
+                byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                 DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
                 socket.send(sendPacket);
 
@@ -394,7 +464,7 @@ public class AgentUDP implements Runnable {
         byte[] ack = new byte[10];
         DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
-        socket.setSoTimeout(50);
+        // socket.setSoTimeout(50);
         socket.receive(ackpack);
 
         ack = ackpack.getData();

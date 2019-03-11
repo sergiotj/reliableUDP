@@ -20,7 +20,7 @@ public class Server {
 
         System.out.println("Server started at port 4445.");
 
-        while (true) {
+
 
             System.out.println("Waiting for connection...");
 
@@ -31,21 +31,23 @@ public class Server {
 
             Ack a = Ack.bytesToAck(receivePacket.getData());
 
-            if (a.getStatus() != 1) {
-                return;
+            if (a.getType() == TypeAck.CONNECT) {
+
+                if (a.getStatus() != 1) {
+                    return;
+                }
+
+                // we retrieve the address and port of the client, since we are going to send the response back.
+                InetAddress address = receivePacket.getAddress();
+                int portClient = receivePacket.getPort();
+
+                System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
+
+                AgentUDP agent = new AgentUDP(socket, address, portClient, this.sizeOfPacket, this.window);
+                Thread t1 = new Thread(agent);
+                t1.start();
             }
 
-            // we retrieve the address and port of the client, since we are going to send the response back.
-            InetAddress address = receivePacket.getAddress();
-            int portClient = receivePacket.getPort();
-
-            System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
-
-            AgentUDP agent = new AgentUDP(socket, address, portClient, this.sizeOfPacket, this.window);
-            Thread t1 = new Thread(agent);
-            t1.start();
-
-        }
     }
 
     public static void main(String [] args) {

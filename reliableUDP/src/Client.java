@@ -30,7 +30,7 @@ public class Client {
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
-        Ack ack = new Ack(TypeAck.CONTROL, 1);
+        Ack ack = new Ack(TypeAck.CONNECT, 1);
         byte[] ackB = Ack.ackToBytes(ack);
         DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
         clientSocket.send(sendPacket);
@@ -61,20 +61,20 @@ public class Client {
         clientSocket.send(sendPacket1);
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
-        String sentence = inFromUser.readLine();
 
         boolean right = false;
         String firstWord = null;
+        String sentence = null;
+
+        System.out.println("Escreva: put file ou get file");
 
         while (!right) {
-
-            System.out.println("Escreva: put file ou get file");
 
             sentence = inFromUser.readLine();
 
             firstWord = sentence.substring(0, sentence.indexOf(' '));
 
-            if (!firstWord.equals("get") || !firstWord.equals("put")) {
+            if (!firstWord.equals("get") && !firstWord.equals("put")) {
 
                 System.out.println("Operação inválida");
 
@@ -82,10 +82,12 @@ public class Client {
 
         }
 
-        String file = sentence.substring(1, sentence.indexOf(' '));
+        String file = sentence.split(" ")[1];
         System.out.println("Starting AgenteUDP to handle connection with server.");
 
         AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, this.sizeOfPacket, this.window);
+
+        System.out.println("quero o ficheiro: " + file);
 
         if (firstWord.equals("get")) {
 
