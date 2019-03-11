@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 
 public class AgentUDP implements Runnable {
 
@@ -282,7 +283,7 @@ public class AgentUDP implements Runnable {
 
         int iWritten = 0;
 
-        FileOutputStream outToFile = new FileOutputStream(filename);
+        FileOutputStream outToFile = new FileOutputStream("saída.mp3");
 
         ArrayList<Integer> missingParts = new ArrayList<>();
 
@@ -295,7 +296,7 @@ public class AgentUDP implements Runnable {
 
         while(true) {
 
-            byte[] message = new byte[sizeOfPacket];
+            byte[] message = new byte[100000];
 
             DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
             socket.receive(receivedPacket);
@@ -325,6 +326,7 @@ public class AgentUDP implements Runnable {
             if (iWritten == p.getSeqNumber()) {
 
                 outToFile.write(newData);
+                System.out.println("A escrever");
                 iWritten++;
             }
 
@@ -406,10 +408,7 @@ public class AgentUDP implements Runnable {
 
                         int ackReceived = a.getSeqNumber();
 
-                        for(Packet p : chunks) {
-
-                            if (p.getSeqNumber() == ackReceived) chunks.remove(p);
-                        }
+                        chunks.removeIf((Packet p) -> p.getSeqNumber() == ackReceived);
 
                         System.out.println("Ack received: Sequence Number = " + ackReceived);
                     }
