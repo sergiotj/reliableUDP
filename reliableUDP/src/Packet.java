@@ -143,7 +143,10 @@ public class Packet implements Serializable {
 
             if (flag) start = start + (fileContent.length - start);
             else start = start + sizeOfPacket;
+
         }
+
+        i--;
 
         return i;
     }

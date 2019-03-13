@@ -44,8 +44,15 @@ public class AckListener implements Runnable {
 
         while (true) {
 
+            if (chunks.isEmpty()) {
+
+                System.out.println("ACABOU A ESPERA POR ACKS");
+                return;
+            }
+
             // receiving acknowledgments
             // Create another packet by setting a byte array and creating data gram packet
+            System.out.println("Vai esperar por um ACK");
             byte[] ack = new byte[50];
             DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
@@ -65,7 +72,7 @@ public class AckListener implements Runnable {
 
                     int ackReceived = a.getSeqNumber();
 
-                    // System.out.println("Ack received: Sequence Number = " + ackReceived);
+                    System.out.println("Ack received: Sequence Number = " + ackReceived);
 
                     for (Packet p : chunks) {
 
@@ -75,7 +82,9 @@ public class AckListener implements Runnable {
                         }
                     }
 
-                        windowSemaph.release();
+                    windowSemaph.release();
+
+                    System.out.println("Tamanho da janela: " + windowSemaph.availablePermits());
                 }
 
                 if (a.getStatus() == -1 && a.getType() == TypeAck.DATAFLOW){
@@ -98,11 +107,6 @@ public class AckListener implements Runnable {
             } catch (IOException ioex) {
 
                 ioex.printStackTrace();
-            }
-
-            if (flag == 1) {
-
-                return;
             }
 
         }

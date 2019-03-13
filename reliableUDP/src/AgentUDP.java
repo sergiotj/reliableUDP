@@ -135,8 +135,6 @@ public class AgentUDP implements Runnable {
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
 
-        System.out.println("ENVIOU O ACK FINAL CRLH!");
-
     }
 
     public void sendInServer(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
@@ -289,10 +287,6 @@ public class AgentUDP implements Runnable {
         // ciclo de escrita
         while(true) {
 
-            System.out.println("passou aqui");
-
-            System.out.println("QUERO ESCREVER A POSICAO: " + iWritten);
-
             // se tem o ficheiro
             if (buffer.containsKey(iWritten)){
 
@@ -303,15 +297,15 @@ public class AgentUDP implements Runnable {
                      outToFile.write(p.getData());
                      System.out.println("A escrever o segmento: " + iWritten);
                      iWritten++;
-
-                     iWait = 0;
                  }
+
+                iWait = 0;
 
             } else {
 
                 iWait++;
 
-                if (iWait == window) {
+                if (iWait == window / 2) {
 
                     System.out.println("PEDINDO REENVIO!!!");
 
@@ -378,10 +372,7 @@ public class AgentUDP implements Runnable {
 
                         System.out.println("Mandei um ACK" + p.getSeqNumber());
 
-                        System.out.println("written" + iWritten);
-                        System.out.println("parts" + nrParts);
-
-                        if (iWritten == nrParts - 1) {
+                        if (iWritten == nrParts + 1) {
 
                             outToFile.close();
 
@@ -404,7 +395,7 @@ public class AgentUDP implements Runnable {
 
                 else {
 
-                    System.out.println("Pacote descartado pq ya...");
+                    System.out.println("Pacote fora do contexto ou duplicado! DESCARTADO!");
 
                 }
 
@@ -427,7 +418,7 @@ public class AgentUDP implements Runnable {
 
         int flag = 0;
 
-        Semaphore windowSemaph = new Semaphore(window);
+        Semaphore windowSemaph = new Semaphore(window + 1);
 
         AckListener aListener = new AckListener(socket, address, port, chunks, priority, windowSemaph, flag);
         Thread t1 = new Thread(aListener);
@@ -436,9 +427,12 @@ public class AgentUDP implements Runnable {
         int sent = 0;
         int parts = chunks.size();
 
+        System.out.println("partes a enviar : "+ parts);
+
         while (true) {
 
             if (!priority.isEmpty()) {
+
                 for (Packet p : priority) {
 
                     System.out.println("ENTROU NAS PRIORIDADES e vai enviar reenvio");
@@ -453,35 +447,55 @@ public class AgentUDP implements Runnable {
                 }
             }
 
-            while (windowSemaph.availablePermits() > 0) {
+            System.out.println("Tamannho da Janela antes = " + windowSemaph.availablePermits());
+            while (windowSemaph.availablePermits() >= 0) {
+
+                if (chunks.isEmpty()) break;
 
                 for (Packet p : chunks) {
 
                     if (!priority.isEmpty()) break;
 
+                    System.out.println("OIEE");
+
                     p.addHash();
+
+                    System.out.println("Vai enviar:" + p.getSeqNumber());
 
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
                     socket.send(sendPacket);
 
+                    System.out.println("Enviou:" + p.getSeqNumber());
+
                     windowSemaph.acquire();
 
                     System.out.println("Sent: Sequence number = " + p.getSeqNumber());
 
+                    System.out.println("SIZE DA CENA = " + chunks.size());
+
+                    System.out.println("SIZE DA CENA PRIO = " + priority.size());
+
+                    System.out.println("SIZE DA JANELA DEPOIS = " + windowSemaph.availablePermits());
+
                     sent++;
 
-                    if (window == 0) break;
+                    // rever isto
+                    if (windowSemaph.availablePermits() == 0 && chunks.size() > 10) break;
+                }
+
+
+
+                if (chunks.isEmpty() && priority.isEmpty()){
+
+                    flag = 1;
+                    t1.interrupt();
+                    System.out.println("Ficheiro enviado com sucesso.");
+                    return;
+
                 }
 
                 if (!priority.isEmpty()) break;
-
-                if (sent == parts) {
-
-                    flag = 1;
-                    System.out.println("Envio realizado com sucesso.");
-                    return;
-                }
 
             }
         }
@@ -515,7 +529,7 @@ public class AgentUDP implements Runnable {
 
     private Ack receiveStatusAck() throws IOException, ClassNotFoundException {
 
-        byte[] ack = new byte[30];
+        byte[] ack = new byte[50];
         DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
         // socket.setSoTimeout(50);
