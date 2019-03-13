@@ -10,10 +10,6 @@ public class Ack implements Serializable {
     private int seqNumber;
     private int status;
 
-    public Ack() {
-
-    }
-
     public Ack(TypeAck type, int seqNumber, int status) {
 
         this.type = type;
@@ -44,10 +40,9 @@ public class Ack implements Serializable {
         return this.status;
     }
 
-    public static Ack bytesToAck(byte[] bytes) {
+    public static Ack bytesToAck(Kryo kryo, byte[] bytes, TypeAck type) {
 
-        Kryo kryo = new Kryo();
-        kryo.register(Ack.class);
+        kryo.register(Ack.class, new AckSerializer(type));
 
         ByteArrayInputStream stream = new ByteArrayInputStream(bytes);
         Input input = new Input(stream);
@@ -61,16 +56,16 @@ public class Ack implements Serializable {
     }
 
 
-    public static byte[] ackToBytes(Ack p) {
+    public static byte[] ackToBytes(Kryo kryo, Ack a, TypeAck type) {
 
-        Kryo kryo = new Kryo();
-        kryo.register(Ack.class);
+        kryo.register(Ack.class, new AckSerializer(type));
 
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
 
         Output output = new Output(stream);
-        kryo.writeObject(output, p);
+        kryo.writeObject(output, a);
 
+        output.flush();
         output.close();
 
         return stream.toByteArray();

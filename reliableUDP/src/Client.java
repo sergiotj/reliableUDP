@@ -1,3 +1,5 @@
+import com.esotericsoftware.kryo.Kryo;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -17,7 +19,7 @@ public class Client {
         this.sizeOfPacket = sizeOfPacket;
     }
 
-    public void startClient(String args[]) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
+    public void startClient(String args[]) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
 
         if (!args[0].equals("connect") && args.length != 2) {
 
@@ -26,12 +28,13 @@ public class Client {
         }
 
         DatagramSocket clientSocket = new DatagramSocket();
+        Kryo kryo = new Kryo();
 
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
         Ack ack = new Ack(TypeAck.CONNECT, 1);
-        byte[] ackB = Ack.ackToBytes(ack);
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONNECT);
         DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
         clientSocket.send(sendPacket);
 
@@ -42,7 +45,7 @@ public class Client {
         clientSocket.receive(receivedPacket);
         message = receivedPacket.getData();
 
-        Ack a = Ack.bytesToAck(message);
+        Ack a = Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
 
         int success = a.getStatus();
 
@@ -56,7 +59,7 @@ public class Client {
 
         // 3 way handshake
         Ack ack1 = new Ack(TypeAck.CONTROL, 1);
-        byte[] ackB1 = Ack.ackToBytes(ack1);
+        byte[] ackB1 = Ack.ackToBytes(kryo, ack1, TypeAck.CONTROL);
         DatagramPacket sendPacket1 = new DatagramPacket(ackB1, ackB1.length, IPAddress, port);
         clientSocket.send(sendPacket1);
 
@@ -85,7 +88,7 @@ public class Client {
         String file = sentence.split(" ")[1];
         System.out.println("Starting AgenteUDP to handle connection with server.");
 
-        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, this.sizeOfPacket, this.window);
+        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, this.sizeOfPacket, this.window, kryo);
 
         System.out.println("quero o ficheiro: " + file);
 
@@ -106,13 +109,13 @@ public class Client {
 
     public static void main(String args[]) {
 
-        Client cli = new Client(5, 100);
+        Client cli = new Client(10, 10000);
 
         try {
 
             cli.startClient(args);
 
-        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException exc) {
+        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | InterruptedException exc) {
 
             exc.printStackTrace();
         }

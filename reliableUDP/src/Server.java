@@ -1,3 +1,5 @@
+import com.esotericsoftware.kryo.Kryo;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -17,10 +19,9 @@ public class Server {
     public void startServer() throws IOException, ClassNotFoundException {
 
         DatagramSocket socket = new DatagramSocket(4445);
+        Kryo kryo = new Kryo();
 
         System.out.println("Server started at port 4445.");
-
-
 
             System.out.println("Waiting for connection...");
 
@@ -29,7 +30,7 @@ public class Server {
             DatagramPacket receivePacket = new DatagramPacket(ack, ack.length);
             socket.receive(receivePacket);
 
-            Ack a = Ack.bytesToAck(receivePacket.getData());
+            Ack a = Ack.bytesToAck(kryo, receivePacket.getData(), TypeAck.CONNECT);
 
             if (a.getType() == TypeAck.CONNECT) {
 
@@ -43,7 +44,7 @@ public class Server {
 
                 System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
 
-                AgentUDP agent = new AgentUDP(socket, address, portClient, this.sizeOfPacket, this.window);
+                AgentUDP agent = new AgentUDP(socket, address, portClient, this.sizeOfPacket, this.window, kryo);
                 Thread t1 = new Thread(agent);
                 t1.start();
             }
@@ -52,7 +53,7 @@ public class Server {
 
     public static void main(String [] args) {
 
-        Server sv = new Server(5, 100);
+        Server sv = new Server(10, 10000);
 
         try {
 
