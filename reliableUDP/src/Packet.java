@@ -130,7 +130,9 @@ public class Packet implements Serializable {
         int start;
         boolean flag;
 
-        for(start = 0; start < fileContent.length;) {
+        int i = 0;
+
+        for(start = 0; start < fileContent.length; i++) {
 
             if ((start + sizeOfPacket) >= fileContent.length) {
                 flag = true;
@@ -143,7 +145,7 @@ public class Packet implements Serializable {
             else start = start + sizeOfPacket;
         }
 
-        return start;
+        return i;
     }
 
     public void addHash() throws NoSuchAlgorithmException {

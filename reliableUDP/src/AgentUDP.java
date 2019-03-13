@@ -378,7 +378,10 @@ public class AgentUDP implements Runnable {
 
                         System.out.println("Mandei um ACK" + p.getSeqNumber());
 
-                        if (iWritten == nrParts) {
+                        System.out.println("written" + iWritten);
+                        System.out.println("parts" + nrParts);
+
+                        if (iWritten == nrParts - 1) {
 
                             outToFile.close();
 

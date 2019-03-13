@@ -65,7 +65,7 @@ public class AckListener implements Runnable {
 
                     int ackReceived = a.getSeqNumber();
 
-                    System.out.println("Ack received: Sequence Number = " + ackReceived);
+                    // System.out.println("Ack received: Sequence Number = " + ackReceived);
 
                     for (Packet p : chunks) {
 
