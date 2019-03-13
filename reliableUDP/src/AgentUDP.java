@@ -362,21 +362,6 @@ public class AgentUDP implements Runnable {
                             System.out.println("A escrever o segmento: " + iWritten);
                             iWritten++;
 
-                            if (iWritten == nrParts) {
-
-                                outToFile.close();
-
-                                if (Arrays.equals(hash, getHashFile("saida.mp3"))) {
-
-                                    System.out.println("Ficheiro recebido com sucesso.");
-                                    return;
-
-                                } else {
-
-                                    System.out.println("Falha a receber o ficheiro");
-                                    return;
-                                }
-                            }
                         }
 
                         if (seqNumber > iWritten) {
@@ -393,6 +378,22 @@ public class AgentUDP implements Runnable {
 
                         System.out.println("Mandei um ACK" + p.getSeqNumber());
 
+                        if (iWritten == nrParts) {
+
+                            outToFile.close();
+
+                            if (Arrays.equals(hash, getHashFile("saida.mp3"))) {
+
+                                System.out.println("Ficheiro recebido com sucesso.");
+                                return;
+
+                            } else {
+
+                                System.out.println("Falha a receber o ficheiro");
+                                return;
+                            }
+                        }
+
                         break;
                     }
                 }
@@ -403,15 +404,6 @@ public class AgentUDP implements Runnable {
                     System.out.println("Pacote descartado pq ya...");
 
                 }
-
-                /*
-                // all parts received...
-                while (iWritten <= nrParts) {
-
-                    outToFile.write(buffer.get(iWritten));
-                    iWritten++;
-                }
-                */
 
             }
             // there are missing parts... so, while loop should continue

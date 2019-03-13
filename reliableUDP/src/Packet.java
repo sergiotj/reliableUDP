@@ -86,9 +86,26 @@ public class Packet implements Serializable {
 
         System.out.println("Tamanho da cena: " + fileContent.length);
 
+        boolean flag;
+
         for(int i = 0, start = 0; start < fileContent.length; i++) {
 
-            byte[] chunk = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
+            if ((start + sizeOfPacket) >= fileContent.length) {
+                flag = true;
+            }
+
+            else flag = false;
+
+            byte[] chunk = null;
+
+            if (flag) {
+
+                chunk = Arrays.copyOfRange(fileContent, start, start + (fileContent.length - start));
+            }
+            else {
+
+                chunk = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
+            }
 
             Packet p = new Packet(chunk);
 
@@ -110,13 +127,23 @@ public class Packet implements Serializable {
         // Create a byte array to store file
         byte[] fileContent = Files.readAllBytes(file.toPath());
 
-        int i, start;
-        for(i = 0, start = 0; start < fileContent.length; i++) {
+        int start;
+        boolean flag;
 
-            start += sizeOfPacket;
+        for(start = 0; start < fileContent.length;) {
+
+            if ((start + sizeOfPacket) >= fileContent.length) {
+                flag = true;
+            }
+
+            else flag = false;
+
+
+            if (flag) start = start + (fileContent.length - start);
+            else start = start + sizeOfPacket;
         }
 
-        return i;
+        return start;
     }
 
     public void addHash() throws NoSuchAlgorithmException {
