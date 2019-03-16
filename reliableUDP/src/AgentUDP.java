@@ -395,7 +395,7 @@ public class AgentUDP implements Runnable {
 
                 else {
 
-                    System.out.println("Pacote fora do contexto ou duplicado! DESCARTADO!");
+                    System.out.println("Pacote " + p.getSeqNumber() + "fora do contexto ou duplicado! DESCARTADO!");
 
                 }
 
