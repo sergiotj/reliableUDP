@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.security.NoSuchAlgorithmException;
 
 public class Client {
@@ -33,19 +34,7 @@ public class Client {
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
-        Ack ack = new Ack(TypeAck.CONNECT, 1);
-        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONNECT);
-        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
-        clientSocket.send(sendPacket);
-
-        // 3 way handshake
-
-        byte[] message = new byte[200];
-        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
-        clientSocket.receive(receivedPacket);
-        message = receivedPacket.getData();
-
-        Ack a = Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
+        Ack a = AgentUDP.twoWayHandshake(clientSocket, IPAddress, port, kryo);
 
         int success = a.getStatus();
 
@@ -56,12 +45,6 @@ public class Client {
         }
 
         System.out.println("Está conectado ao servidor.");
-
-        // 3 way handshake
-        Ack ack1 = new Ack(TypeAck.CONTROL, 1);
-        byte[] ackB1 = Ack.ackToBytes(kryo, ack1, TypeAck.CONTROL);
-        DatagramPacket sendPacket1 = new DatagramPacket(ackB1, ackB1.length, IPAddress, port);
-        clientSocket.send(sendPacket1);
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
@@ -94,13 +77,13 @@ public class Client {
 
         if (firstWord.equals("get")) {
 
-            agent.receiveInClient(file);
+            agent.receive(TypeEnt.CLIENT, file);
 
         }
 
         if (firstWord.equals("put")) {
 
-            agent.sendInClient(file);
+            agent.send(TypeEnt.CLIENT, file);
 
         }
 

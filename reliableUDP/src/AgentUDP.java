@@ -42,14 +42,8 @@ public class AgentUDP implements Runnable {
 
         try {
 
-            // 3 way handshake
-            this.sendStatusAck(TypeAck.CONTROL, 1);
-
-            Ack a = this.receiveStatusAck();
-
-            if (a.getStatus() != 1) {
-                return;
-            }
+            // 2 way handshake
+            AgentUDP.twoWayHandshake(socket, address, port, this.kryo);
 
             byte[] message = new byte[200];
 
@@ -57,7 +51,7 @@ public class AgentUDP implements Runnable {
             DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
 
             // 25 cenas para o gajo decidir-se...
-            // socket.setSoTimeout(25);
+            socket.setSoTimeout(0);
             socket.receive(receivedPacket);
             message = receivedPacket.getData();
 
@@ -73,13 +67,13 @@ public class AgentUDP implements Runnable {
             // se é um put file
             if (operation.equals("put")){
 
-                this.receiveInServer(filename);
+                this.receive(TypeEnt.SERVER, filename);
             }
 
             // se é um get file
             if (operation.equals("get")){
 
-                this.sendInServer(filename);
+                this.send(TypeEnt.SERVER, filename);
             }
 
         } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | InterruptedException exc) {
@@ -90,44 +84,46 @@ public class AgentUDP implements Runnable {
 
     }
 
-    ///////////////////////////////////
-    /// CLIENT DOWNLOADING
-    ///////////////////////////////////
-    public void receiveInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
+    public void receive(TypeEnt ent, String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
-        // envia get file e o servidor vai verificar se tem o ficheiro
-        Packet p = new Packet(filename, "get");
+        // se for server
+        // recebe pacote com o nome do ficheiro // FEITO NO RUN LOGO AQUI NÃO SE FAZ
 
-        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
-        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-        socket.send(sendPacket);
+        if (ent == TypeEnt.CLIENT) {
 
-        System.out.println("enviou pacote de get");
+            // envia get file e o servidor vai verificar se tem o ficheiro
+            Packet p = new Packet(filename, "get");
 
-        // recebe ACK
-        Ack a = receiveStatusAck();
-        if (a.getStatus() != 1) {
-            return;
+            byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
+            DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
+            socket.send(sendPacket);
+
+            System.out.println("enviou pacote de get");
+
+            // recebe ACK
+            Ack a = receiveStatusAck();
+            if (a.getStatus() != 1) {
+                return;
+            }
         }
 
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
 
         // recebe hash e nrParts do ficheiro
-        byte[] message1 = new byte[sizeOfPacket];
+        byte[] message = new byte[sizeOfPacket];
 
-        DatagramPacket receivedPacket = new DatagramPacket(message1, message1.length);
+        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
         socket.receive(receivedPacket);
-        message1 = receivedPacket.getData();
-        Packet p1 = Packet.bytesToPacket(this.kryo, message1, TypePk.HASHPARTS);
+        message = receivedPacket.getData();
+        Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.HASHPARTS);
 
-        int nrParts = p1.getParts();
-        byte[] hashFile = p1.getHash();
+        int nrParts = p.getParts();
+        byte[] hashFile = p.getHash();
 
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
-
-        System.out.println("preparado para receber");
+        // este envia até receber ACK 1...
 
         // recebe ficheiro
         receptionDataFlow(this.socket, nrParts, filename, hashFile);
@@ -135,13 +131,17 @@ public class AgentUDP implements Runnable {
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
 
+        // recebe ACK
+        Ack a = receiveStatusAck();
+        if (a.getStatus() != 1) {
+            return;
+        }
     }
 
-    public void sendInServer(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
+    public void send(TypeEnt ent, String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
 
         // verifica se tem o ficheiro
 
-        /*
         System.out.println("Present Project Directory : "+ System.getProperty("user.dir"));
         File f = new File(filename);
         if(!f.isFile()) {
@@ -149,10 +149,27 @@ public class AgentUDP implements Runnable {
             System.out.println("FICHEIRO NÃO EXISTE!");
             return;
         }
-        */
 
-        // envia ACK
-        this.sendStatusAck(TypeAck.CONTROL, 1);
+        if (ent == TypeEnt.CLIENT) {
+
+            // Envia pacote a dizer que quer mandar ficheiro
+            Packet p = new Packet(filename, "put");
+
+            byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
+            DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
+            socket.send(sendPacket);
+
+            while (true) {
+
+                Ack a = receiveStatusAck();
+            }
+        }
+
+        if (ent == TypeEnt.SERVER) {
+
+            // envia ACK
+            this.sendStatusAck(TypeAck.CONTROL, 1);
+        }
 
         // recebe ACK
         Ack a = receiveStatusAck();
@@ -190,88 +207,6 @@ public class AgentUDP implements Runnable {
         // envia ACK
         this.sendStatusAck(TypeAck.CONTROL, 1);
     }
-
-    ///////////////////////////////////
-    /// CLIENT UPLOADING
-    ///////////////////////////////////
-    public void receiveInServer(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
-
-        // recebe pacote com o nome do ficheiro // FEITO NO RUN LOGO AQUI NÃO SE FAZ
-
-        // envia ACK
-        this.sendStatusAck(TypeAck.CONTROL, 1);
-
-        // recebe hash e nrParts do ficheiro
-        byte[] message = new byte[sizeOfPacket];
-
-        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
-        socket.receive(receivedPacket);
-        message = receivedPacket.getData();
-        Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.HASHPARTS);
-
-        int nrParts = p.getParts();
-        byte[] hashFile = p.getHash();
-
-        // envia ACK
-        this.sendStatusAck(TypeAck.CONTROL, 1);
-
-        // recebe ficheiro
-        receptionDataFlow(this.socket, nrParts, filename, hashFile);
-
-        // envia ACK
-        this.sendStatusAck(TypeAck.CONTROL, 1);
-
-        // recebe ACK
-        Ack a = receiveStatusAck();
-        if (a.getStatus() != 1) {
-            return;
-        }
-    }
-
-    public void sendInClient(String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
-
-        // Envia pacote a dizer que quer mandar ficheiro
-        Packet p = new Packet(filename, "put");
-
-        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
-        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-        socket.send(sendPacket);
-
-        // recebe ACK
-        Ack a = receiveStatusAck();
-        if (a.getStatus() != 1) {
-            return;
-        }
-
-        // envia hash e nrParts
-        byte[] hash = this.getHashFile(filename);
-        int nrParts = Packet.fileToNrParts(filename, sizeOfPacket);
-
-        Packet p1 = new Packet(hash, nrParts);
-
-        byte[] message1 = Packet.packetToBytes(this.kryo, p1, TypePk.HASHPARTS);
-        DatagramPacket sendPacket1 = new DatagramPacket(message1, message1.length, this.address, this.port);
-        socket.send(sendPacket1);
-
-        // recebe ACK
-        Ack a1 = receiveStatusAck();
-        if (a1.getStatus() != 1) {
-            return;
-        }
-
-        // envia ficheiro
-        dispatchDataFlow(socket, filename);
-
-        // recebe ACK
-        Ack a2 = receiveStatusAck();
-        if (a2.getStatus() != 1) {
-            return;
-        }
-
-        // envia ACK
-        this.sendStatusAck(TypeAck.CONTROL, 1);
-    }
-
 
     public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
 
@@ -532,12 +467,42 @@ public class AgentUDP implements Runnable {
         byte[] ack = new byte[50];
         DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
-        // socket.setSoTimeout(50);
+        // socket.setSoTimeout(2000);
         socket.receive(ackpack);
 
         ack = ackpack.getData();
 
         return Ack.bytesToAck(this.kryo, ack, TypeAck.CONTROL);
+    }
+
+    public static Ack twoWayHandshake(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo) throws IOException {
+
+        Ack ack = new Ack(TypeAck.CONNECT, 1);
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONNECT);
+        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
+        socket.send(sendPacket);
+
+        byte[] message = new byte[200];
+        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+
+        while (true) {
+
+            socket.send(sendPacket);
+
+            try {
+
+                socket.setSoTimeout(2000);
+                socket.receive(receivedPacket);
+                message = receivedPacket.getData();
+                break;
+
+            } catch (SocketTimeoutException timeout) {
+
+                System.out.println("First connect TIMED-OUT... Sending again!!");
+            }
+        }
+
+        return Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
     }
 
 }
