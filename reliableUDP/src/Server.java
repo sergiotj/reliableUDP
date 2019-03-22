@@ -44,8 +44,8 @@ public class Server {
 
                 System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
 
-                AgentUDP agent = new AgentUDP(socket, address, portClient, this.sizeOfPacket, this.window, kryo);
-                Thread t1 = new Thread(agent);
+                ServerWorker worker = new ServerWorker(socket, address, portClient, this.sizeOfPacket, this.window, kryo);
+                Thread t1 = new Thread(worker);
                 t1.start();
             }
 

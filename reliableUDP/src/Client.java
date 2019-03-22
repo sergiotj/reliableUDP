@@ -34,7 +34,13 @@ public class Client {
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
-        Ack a = AgentUDP.twoWayHandshake(clientSocket, IPAddress, port, kryo);
+        Ack a = AgentUDP.sendHandshake(clientSocket, IPAddress, port, kryo, TypeAck.CONNECT);
+
+        if (a == null) {
+
+            System.out.println("Problema na conexão com o servidor. Conexão abortada...");
+            return;
+        }
 
         int success = a.getStatus();
 

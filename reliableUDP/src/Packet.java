@@ -77,7 +77,7 @@ public class Packet implements Serializable {
         this.seqNumber = seqNumber;
     }
 
-    public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket) throws IOException {
+    public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket) throws IOException, NoSuchAlgorithmException {
 
         // Create a byte array to store file
         byte[] fileContent = Files.readAllBytes(filename.toPath());
@@ -110,6 +110,8 @@ public class Packet implements Serializable {
             Packet p = new Packet(chunk);
 
             p.setSeqNumber(i);
+
+            p.addHash();
 
             packets.add(p);
 
