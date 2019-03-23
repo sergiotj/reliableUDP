@@ -13,8 +13,14 @@ import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class AgentUDP {
 
@@ -37,7 +43,7 @@ public class AgentUDP {
         this.kryo = kryo;
     }
 
-    public void receive(TypeEnt ent, String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
+    public void receive(TypeEnt ent, String filename) throws IOException, InterruptedException, NoSuchAlgorithmException {
 
         // se for server
         // recebe pacote com o nome do ficheiro // FEITO NO RUN LOGO AQUI NÃO SE FAZ
@@ -135,134 +141,80 @@ public class AgentUDP {
         this.receiveHandshake(socket, address, port, kryo, TypeAck.CONTROL);
     }
 
-    public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, ClassNotFoundException, NoSuchAlgorithmException {
+    public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException {
 
-        int iWritten = 0;
+        AtomicInteger iWritten = new AtomicInteger(0);
         int iWait = 0;
 
         System.out.println("partes: " + nrParts);
 
         FileOutputStream outToFile = new FileOutputStream("saida.mp3");
 
-        HashMap<Integer, Packet> buffer = new HashMap<>();
+        Map<Integer, Packet> buffer = Collections.synchronizedMap(new HashMap<>());
+
+        PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten);
+        Thread t1 = new Thread(pListener);
+        t1.start();
 
         // ciclo de escrita
         while(true) {
 
-            // se tem o ficheiro
-            if (buffer.containsKey(iWritten)){
+            synchronized (buffer) {
+                while (!buffer.containsKey(iWritten.get())) {
 
-                 while (buffer.containsKey(iWritten)) {
+                    iWait++;
 
-                     Packet p = buffer.get(iWritten);
+                    if (buffer.containsKey(iWritten.get())) break;
 
-                     outToFile.write(p.getData());
-                     System.out.println("A escrever o segmento: " + iWritten);
-                     iWritten++;
-                 }
+                    // pedir reenvio
+                    if (iWait == 5 || buffer.size() >= 15) {
 
-                iWait = 0;
-
-            } else {
-
-                iWait++;
-
-                if (iWait == window / 2) {
-
-                    System.out.println("PEDINDO REENVIO!!!");
-
-                    // Send acknowledgement
-                    Ack ack = new Ack(TypeAck.DATAFLOW, iWritten, -1);
-                    byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
-                    DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
-                    socket.send(sendPacket);
-                }
-
-            }
-
-            // ciclo pacotes
-            while(true) {
-
-                // recebe pacote
-                byte[] message = new byte[100000];
-                DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
-                socket.receive(receivedPacket);
-                message = receivedPacket.getData();
-                Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.DATA);
-
-                // seqNumber from packet
-                int seqNumber = p.getSeqNumber();
-
-                // comparar com o que se quer agora
-                if (seqNumber >= iWritten) {
-
-                    if (!Arrays.equals(p.getHash(), this.getHashChunk(p.getData()))) {
-
-                        System.out.println("Chegou um pacote corrompido. Sending ACK to resend...");
+                        iWait = 0;
+                        System.out.println("PEDINDO REENVIO do " + iWritten.get());
 
                         // Send acknowledgement
-                        Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), -1);
+                        Ack ack = new Ack(TypeAck.DATAFLOW, iWritten.get(), -1);
                         byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
                         DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                         socket.send(sendPacket);
-
-                        // sai do ciclo para começar de novo
-                        continue;
                     }
 
-                    else {
-
-                        if (seqNumber == iWritten) {
-
-                            outToFile.write(p.getData());
-                            System.out.println("A escrever o segmento: " + iWritten);
-                            iWritten++;
-
-                        }
-
-                        if (seqNumber > iWritten) {
-
-                            buffer.put(p.getSeqNumber(), p);
-
-                        }
-
-                        // Send acknowledgement
-                        Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1);
-                        byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
-                        DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
-                        socket.send(sendPacket);
-
-                        System.out.println("Mandei um ACK" + p.getSeqNumber());
-
-                        if (iWritten == nrParts + 1) {
-
-                            outToFile.close();
-
-                            if (Arrays.equals(hash, getHashFile("saida.mp3"))) {
-
-                                System.out.println("Ficheiro recebido com sucesso.");
-                                return;
-
-                            } else {
-
-                                System.out.println("Falha a receber o ficheiro");
-                                return;
-                            }
-                        }
-
-                        break;
-                    }
-                }
-
-
-                else {
-
-                    System.out.println("Pacote " + p.getSeqNumber() + "fora do contexto ou duplicado! DESCARTADO!");
+                    buffer.wait();
 
                 }
-
             }
-            // there are missing parts... so, while loop should continue
+
+             // se tem o ficheiro
+            if (buffer.containsKey(iWritten.get())) {
+
+                while(buffer.containsKey(iWritten.get())) {
+
+                    Packet p = buffer.get(iWritten.get());
+
+                    outToFile.write(p.getData());
+                    System.out.println("A escrever o segmento: "+iWritten);
+                    iWritten.incrementAndGet();
+                }
+            }
+
+            if (iWritten.get() == nrParts + 1) {
+
+                outToFile.close();
+
+                if (Arrays.equals(hash, getHashFile("saida.mp3"))) {
+
+                    t1.stop();
+                    t1.interrupt();
+                    System.out.println("Ficheiro recebido com sucesso.");
+                    return;
+
+                } else {
+
+                    System.out.println("Falha a receber o ficheiro");
+                    return;
+                }
+            }
+
         }
     }
 
@@ -274,17 +226,20 @@ public class AgentUDP {
 
         CopyOnWriteArrayList<Packet> priority = new CopyOnWriteArrayList<>();
 
+        CopyOnWriteArraySet<Integer> success = new CopyOnWriteArraySet<>();
+
         System.out.println("TAMANHO DO ARRAY:" + chunks.size());
 
-        int flag = 0;
+        int parts = chunks.size();
 
         Semaphore windowSemaph = new Semaphore(window + 1);
 
-        AckListener aListener = new AckListener(socket, address, port, chunks, priority, windowSemaph, flag);
+        AckListener aListener = new AckListener(socket, address, port, success, chunks, priority, windowSemaph, parts);
         Thread t1 = new Thread(aListener);
         t1.start();
 
-        int parts = chunks.size();
+        int index = 0;
+        int savedIndex = 0;
 
         System.out.println("partes a enviar : "+ parts);
 
@@ -293,8 +248,6 @@ public class AgentUDP {
             if (!priority.isEmpty()) {
 
                 for (Packet p : priority) {
-
-                    System.out.println("ENTROU NAS PRIORIDADES e vai enviar reenvio");
 
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
@@ -305,16 +258,29 @@ public class AgentUDP {
                     priority.remove(p);
                 }
 
+                index = savedIndex;
+
             }
 
-            System.out.println("Tamanho da Janela antes = " + windowSemaph.availablePermits());
+            if (success.size() == chunks.size() && priority.isEmpty()){
+
+                t1.interrupt();
+                System.out.println("Ficheiro enviado com sucesso.");
+                return;
+
+            }
+
             while (windowSemaph.availablePermits() >= 0) {
 
-                if (chunks.isEmpty()) break;
+                if (success.size() == chunks.size()) break;
 
-                for (Packet p : chunks) {
+                for (; index < chunks.size();) {
+
+                    Packet p = chunks.get(index);
 
                     if (!priority.isEmpty()) break;
+
+                    if (success.contains(p.getSeqNumber())) continue;
 
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
@@ -322,25 +288,14 @@ public class AgentUDP {
 
                     windowSemaph.acquire();
 
-                    System.out.println("Sent: Sequence number = " + p.getSeqNumber());
+                    System.out.println("Sent: " + p.getSeqNumber());
 
-                    // System.out.println("SIZE DA CENA = " + chunks.size());
-
-                    // System.out.println("SIZE DA CENA PRIO = " + priority.size());
+                    System.out.println("SIZE Do sucesso = " + success.size());
 
                     // System.out.println("SIZE DA JANELA DEPOIS = " + windowSemaph.availablePermits());
 
-                    // rever isto
-                    if (windowSemaph.availablePermits() == 0 && chunks.size() > 10) break;
-                }
-
-                if (chunks.isEmpty() && priority.isEmpty()){
-
-                    flag = 1;
-                    t1.interrupt();
-                    System.out.println("Ficheiro enviado com sucesso.");
-                    return;
-
+                    index++;
+                    savedIndex = index;
                 }
 
                 if (!priority.isEmpty()) break;
@@ -355,13 +310,6 @@ public class AgentUDP {
         byte[] b = Files.readAllBytes(Paths.get(filename));
 
         byte[] hash = MessageDigest.getInstance("MD5").digest(b);
-
-        return Arrays.copyOf(hash, 8);
-    }
-
-    private byte[] getHashChunk(byte[] chunks) throws NoSuchAlgorithmException {
-
-        byte[] hash = MessageDigest.getInstance("MD5").digest(chunks);
 
         return Arrays.copyOf(hash, 8);
     }

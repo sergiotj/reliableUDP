@@ -3,9 +3,11 @@ import com.esotericsoftware.kryo.Kryo;
 import java.io.IOException;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Semaphore;
 
 public class AckListener implements Runnable {
@@ -18,14 +20,14 @@ public class AckListener implements Runnable {
 
     private CopyOnWriteArrayList<Packet> chunks;
 
-    private ArrayList<Packet> copy;
+    private CopyOnWriteArraySet<Integer> success;
 
     private CopyOnWriteArrayList<Packet> priority;
 
     private Semaphore windowSemaph;
-    private int flag;
+    private int parts;
 
-    public AckListener(DatagramSocket socket, InetAddress address, int port, CopyOnWriteArrayList<Packet> chunks, CopyOnWriteArrayList<Packet> priority, Semaphore windowSemaph, int flag){
+    public AckListener(DatagramSocket socket, InetAddress address, int port, CopyOnWriteArraySet<Integer> success, CopyOnWriteArrayList<Packet> chunks, CopyOnWriteArrayList<Packet> priority, Semaphore windowSemaph, int parts){
 
         this.socket = socket;
         this.address = address;
@@ -34,8 +36,8 @@ public class AckListener implements Runnable {
         this.priority = priority;
         this.windowSemaph = windowSemaph;
         this.kryo = new Kryo();
-        this.flag = flag;
-        this.copy = new ArrayList<>(chunks);
+        this.parts = parts;
+        this.success = success;
     }
 
     // SERVER
@@ -44,7 +46,7 @@ public class AckListener implements Runnable {
 
         while (true) {
 
-            if (chunks.isEmpty()) {
+            if (success.size() == chunks.size()) {
 
                 System.out.println("ACABOU A ESPERA POR ACKS");
                 return;
@@ -52,7 +54,6 @@ public class AckListener implements Runnable {
 
             // receiving acknowledgments
             // Create another packet by setting a byte array and creating data gram packet
-            System.out.println("Vai esperar por um ACK");
             byte[] ack = new byte[50];
             DatagramPacket ackpack = new DatagramPacket(ack, ack.length);
 
@@ -72,19 +73,12 @@ public class AckListener implements Runnable {
 
                     int ackReceived = a.getSeqNumber();
 
-                    System.out.println("Ack received: Sequence Number = " + ackReceived);
+                    System.out.println("Ack received: " + ackReceived);
 
-                    for (Packet p : chunks) {
-
-                        if (p.getSeqNumber() == ackReceived) {
-
-                            chunks.remove(p);
-                        }
-                    }
+                    success.add(ackReceived);
 
                     windowSemaph.release();
 
-                    System.out.println("Tamanho da janela: " + windowSemaph.availablePermits());
                 }
 
                 if (a.getStatus() == -1 && a.getType() == TypeAck.DATAFLOW){
@@ -93,7 +87,7 @@ public class AckListener implements Runnable {
 
                     System.out.println("Pedido de reenvio = " + ackReceived);
 
-                    priority.add(copy.get(ackReceived));
+                    priority.add(chunks.get(ackReceived));
 
                 }
 
