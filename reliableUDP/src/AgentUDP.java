@@ -136,7 +136,7 @@ public class AgentUDP {
                     if (buffer.containsKey(iWritten.get())) break;
 
                     // pedir reenvio
-                    if (iWait == 5 || buffer.size() >= 15) {
+                    if (iWait == 5 || nrParts - buffer.size() <= 5) {
 
                         iWait = 0;
                         System.out.println("PEDINDO REENVIO do " + iWritten.get());
