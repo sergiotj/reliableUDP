@@ -44,17 +44,9 @@ public class ServerWorker implements Runnable {
                 return;
             }
 
-            byte[] message = new byte[200];
-
-            // receive what client wants
-            DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
-
             // 25 cenas para o gajo decidir-se...
             socket.setSoTimeout(0);
-            socket.receive(receivedPacket);
-            message = receivedPacket.getData();
-
-            Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.FNOP);
+            Packet p = agent.receivePacketInfo(socket, address, port, kryo, TypePk.FNOP);
 
             String filename = p.getFilename();
 

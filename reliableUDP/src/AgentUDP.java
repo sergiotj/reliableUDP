@@ -53,30 +53,17 @@ public class AgentUDP {
             // envia get file e o servidor vai verificar se tem o ficheiro
             Packet p = new Packet(filename, "get");
 
-            byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
-            DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-            socket.send(sendPacket);
+            this.sendPacketInfo(socket, address, port, kryo, p, TypePk.FNOP);
 
             System.out.println("enviou pacote de get");
 
         }
 
-        receiveHandshake(socket, address, port, kryo, TypeAck.CONTROL);
-
         // recebe hash e nrParts do ficheiro
-        byte[] message = new byte[sizeOfPacket];
-
-        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
-        socket.receive(receivedPacket);
-        message = receivedPacket.getData();
-        Packet p = Packet.bytesToPacket(this.kryo, message, TypePk.HASHPARTS);
+        Packet p = receivePacketInfo(socket, address, port, kryo, TypePk.HASHPARTS);
 
         int nrParts = p.getParts();
         byte[] hashFile = p.getHash();
-
-        // envia ACK
-        this.sendStatusAck(TypeAck.CONTROL, 1);
-        // este envia até receber ACK 1...
 
         // recebe ficheiro
         receptionDataFlow(this.socket, nrParts, filename, hashFile);
@@ -102,18 +89,8 @@ public class AgentUDP {
             // Envia pacote a dizer que quer mandar ficheiro
             Packet p = new Packet(filename, "put");
 
-            byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.FNOP);
-            DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-            socket.send(sendPacket);
+            this.sendPacketInfo(socket, address, port, kryo, p, TypePk.FNOP);
 
-            Ack a = receiveStatusAck();
-
-        }
-
-        if (ent == TypeEnt.SERVER) {
-
-            // envia ACK
-            sendHandshake(socket, address, port, kryo, TypeAck.CONTROL);
         }
 
         // envia hash e nrParts
@@ -122,15 +99,7 @@ public class AgentUDP {
 
         Packet p = new Packet(hash, nrParts);
 
-        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.HASHPARTS);
-        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-        socket.send(sendPacket);
-
-        // recebe ACK
-        Ack a1 = receiveStatusAck();
-        if (a1.getStatus() != 1) {
-            return;
-        }
+        this.sendPacketInfo(socket, address, port, kryo, p, TypePk.HASHPARTS);
 
         System.out.println("preparado para enviar");
 
@@ -336,7 +305,6 @@ public class AgentUDP {
         return Ack.bytesToAck(this.kryo, ack, TypeAck.CONTROL);
     }
 
-    // cliente que envia
     public static Ack sendHandshake(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, TypeAck type) throws IOException {
 
         Ack ack = new Ack(type, 1);
@@ -357,7 +325,7 @@ public class AgentUDP {
 
                 socket.setSoTimeout(4000);
                 socket.receive(receivedPacket);
-                System.out.println("recebi pacote no cliente");
+
                 message = receivedPacket.getData();
                 break;
 
@@ -366,7 +334,7 @@ public class AgentUDP {
                 retry++;
                 System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
                 socket.send(sendPacket);
-                System.out.println("mandei um pacote");
+
             }
         }
 
@@ -405,7 +373,84 @@ public class AgentUDP {
                 socket.setSoTimeout(4000);
                 socket.receive(receivedPacket);
 
-                return Ack.bytesToAck(kryo, message, type);
+                return Ack.bytesToAck(kryo, receivedPacket.getData(), type);
+
+            } catch (SocketTimeoutException timeout) {
+
+                retry++;
+                System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
+                socket.send(sendPacket);
+
+            }
+        }
+
+        return null;
+    }
+
+    public static Ack sendPacketInfo(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, Packet packet, TypePk type) throws IOException {
+
+        byte[] packetB = Packet.packetToBytes(kryo, packet, type);
+
+        DatagramPacket sendPacket = new DatagramPacket(packetB, packetB.length, IPAddress, port);
+        socket.send(sendPacket);
+
+        byte[] message = new byte[200];
+        DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+
+        int retry = 0;
+
+        while (retry < 5) {
+
+            try {
+
+                socket.setSoTimeout(4000);
+                socket.receive(receivedPacket);
+
+                message = receivedPacket.getData();
+                break;
+
+            } catch (SocketTimeoutException timeout) {
+
+                retry++;
+                System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
+                socket.send(sendPacket);
+            }
+        }
+
+        if (retry == 5) return null;
+
+        Ack ack = new Ack(TypeAck.CONTROL, 1);
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
+        DatagramPacket sendPacket1 = new DatagramPacket(ackB, ackB.length, IPAddress, port);
+
+        socket.send(sendPacket1);
+
+        return Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
+    }
+
+    public Packet receivePacketInfo(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, TypePk type) throws IOException {
+
+        byte[] packetB = new byte[50];
+        DatagramPacket receivePacket = new DatagramPacket(packetB, packetB.length);
+
+        Ack ack = new Ack(TypeAck.CONTROL, 1);
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
+        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
+
+        int retry = 0;
+
+        while (retry < 5) {
+
+            try {
+
+                socket.setSoTimeout(4000);
+                socket.receive(receivePacket);
+
+                socket.send(sendPacket);
+
+                Packet p = Packet.bytesToPacket(kryo, receivePacket.getData(), type);
+
+                return p;
 
             } catch (SocketTimeoutException timeout) {
 

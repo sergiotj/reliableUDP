@@ -101,6 +101,10 @@ public class PacketListener implements Runnable {
 
                 ex.printStackTrace();
 
+            } catch (NegativeArraySizeException nase) {
+
+                System.out.println("Foi recebido um pacote que não é de dados. Foi descartado!");
+                continue;
             }
 
         }
