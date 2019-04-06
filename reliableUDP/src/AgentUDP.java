@@ -1,6 +1,11 @@
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -11,6 +16,8 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -34,6 +41,8 @@ public class AgentUDP {
 
     private Kryo kryo;
 
+    private String key;
+
     public AgentUDP(DatagramSocket socket, InetAddress address, int port, int sizeOfPacket, int window, Kryo kryo) {
 
         this.socket = socket;
@@ -42,9 +51,10 @@ public class AgentUDP {
         this.sizeOfPacket = sizeOfPacket;
         this.window = window;
         this.kryo = kryo;
+        this.key = "ChaveEncriProjCC"; // 128 bit key
     }
 
-    public void receive(TypeEnt ent, String filename) throws IOException, InterruptedException, NoSuchAlgorithmException {
+    public void receive(TypeEnt ent, String filename) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
 
         // se for server
         // recebe pacote com o nome do ficheiro // FEITO NO RUN LOGO AQUI NÃO SE FAZ
@@ -52,7 +62,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // envia get file e o servidor vai verificar se tem o ficheiro
-            Packet p = new Packet(filename, "get");
+            Packet p = new Packet(filename, "get", key);
 
             this.sendReliableInfo(socket, address, port, kryo, p, TypePk.FNOP);
 
@@ -73,7 +83,7 @@ public class AgentUDP {
         sendReliableInfo(socket, address, port, kryo, a, TypeAck.CONTROL);
     }
 
-    public void send(TypeEnt ent, String filename) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
+    public void send(TypeEnt ent, String filename) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InterruptedException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         // verifica se tem o ficheiro
         File f = new File(filename);
@@ -86,7 +96,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // Envia pacote a dizer que quer mandar ficheiro
-            Packet p = new Packet(filename, "put");
+            Packet p = new Packet(filename, "put", key);
 
             this.sendReliableInfo(socket, address, port, kryo, p, TypePk.FNOP);
 
@@ -109,7 +119,7 @@ public class AgentUDP {
         receiveReliableInfo(socket, address, port, kryo, TypeAck.CONTROL);
     }
 
-    public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException {
+    public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
         String directoryName = "out";
         File directory = new File(directoryName);
@@ -133,6 +143,11 @@ public class AgentUDP {
         PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten);
         Thread t1 = new Thread(pListener);
         t1.start();
+
+        Key aesKey = new SecretKeySpec(key.getBytes(), "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+
+        cipher.init(Cipher.DECRYPT_MODE, aesKey);
 
         // ciclo de escrita
         while(true) {
@@ -175,7 +190,9 @@ public class AgentUDP {
 
                     Packet p = buffer.get(iWritten.get());
 
-                    outToFile.write(p.getData());
+                    byte[] dataToBeWrite = cipher.doFinal(p.getData());
+
+                    outToFile.write(dataToBeWrite);
                     System.out.println("A escrever o segmento: " + iWritten);
                     iWritten.incrementAndGet();
                 }
@@ -202,11 +219,11 @@ public class AgentUDP {
         }
     }
 
-    public void dispatchDataFlow(DatagramSocket socket, String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException {
+    public void dispatchDataFlow(DatagramSocket socket, String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         File file = new File(fileName);
 
-        CopyOnWriteArrayList<Packet> chunks = new CopyOnWriteArrayList<>(Packet.fileToChunks(file, sizeOfPacket));
+        CopyOnWriteArrayList<Packet> chunks = new CopyOnWriteArrayList<>(Packet.fileToChunks(file, sizeOfPacket, this.key));
 
         CopyOnWriteArrayList<Packet> priority = new CopyOnWriteArrayList<>();
 

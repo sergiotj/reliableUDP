@@ -1,9 +1,17 @@
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
+import org.omg.CORBA.DynAnyPackage.Invalid;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.nio.file.Files;
+import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -17,16 +25,18 @@ public class Packet implements Serializable {
     private String filename;
     private String operation;
     private int nrParts;
+    private String key;
 
     public Packet(byte[] fullPacket) {
 
         this.data = fullPacket;
     }
 
-    public Packet(String filename, String operation) {
+    public Packet(String filename, String operation, String key) {
 
         this.filename = filename;
         this.operation = operation;
+        this.key = key;
     }
 
     public Packet(byte[] data, int seqNumber, byte[] hash) {
@@ -72,12 +82,17 @@ public class Packet implements Serializable {
         return this.hash;
     }
 
+    public String getKey() {
+
+        return this.key;
+    }
+
     public void setSeqNumber(int seqNumber) {
 
         this.seqNumber = seqNumber;
     }
 
-    public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket) throws IOException, NoSuchAlgorithmException {
+    public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket, String key) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
 
         // Create a byte array to store file
         byte[] fileContent = Files.readAllBytes(filename.toPath());
@@ -87,6 +102,10 @@ public class Packet implements Serializable {
         System.out.println("Tamanho da cena: " + fileContent.length);
 
         boolean flag;
+
+        Key aesKey = new SecretKeySpec(key.getBytes(), "AES");
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, aesKey);
 
         for(int i = 0, start = 0; start < fileContent.length; i++) {
 
@@ -107,7 +126,7 @@ public class Packet implements Serializable {
                 chunk = Arrays.copyOfRange(fileContent, start, start + sizeOfPacket);
             }
 
-            Packet p = new Packet(chunk);
+            Packet p = new Packet(cipher.doFinal(chunk));
 
             p.setSeqNumber(i);
 

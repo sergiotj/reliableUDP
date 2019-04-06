@@ -1,5 +1,8 @@
 import com.esotericsoftware.kryo.Kryo;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -7,6 +10,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
 public class Client {
@@ -21,7 +25,7 @@ public class Client {
         this.sizeOfPacket = sizeOfPacket;
     }
 
-    public void startClient(String args[]) throws IOException, ClassNotFoundException, NoSuchAlgorithmException, InterruptedException {
+    public void startClient(String args[]) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
         if (!args[0].equals("connect") && args.length != 2) {
 
@@ -110,7 +114,7 @@ public class Client {
 
             cli.startClient(args);
 
-        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | InterruptedException exc) {
+        } catch (IOException | NoSuchPaddingException | NoSuchAlgorithmException | IllegalBlockSizeException | InvalidKeyException | BadPaddingException | InterruptedException exc) {
 
             exc.printStackTrace();
         }

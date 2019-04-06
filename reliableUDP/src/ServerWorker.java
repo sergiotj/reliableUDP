@@ -1,9 +1,13 @@
 import com.esotericsoftware.kryo.Kryo;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
 public class ServerWorker implements Runnable {
@@ -69,7 +73,7 @@ public class ServerWorker implements Runnable {
                 agent.send(TypeEnt.SERVER, filename);
             }
 
-        } catch (IOException | ClassNotFoundException | NoSuchAlgorithmException | InterruptedException exc) {
+        } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException | InvalidKeyException | InterruptedException exc) {
 
             exc.printStackTrace();
 

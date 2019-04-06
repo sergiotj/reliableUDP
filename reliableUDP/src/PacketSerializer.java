@@ -18,6 +18,8 @@ public class PacketSerializer extends Serializer<Packet> {
 
             output.writeString(p.getFilename());
             output.writeString(p.getOperation());
+
+            output.writeString(p.getKey());
         }
 
         if (op == TypePk.DATA) {
@@ -47,7 +49,12 @@ public class PacketSerializer extends Serializer<Packet> {
 
         if (op == TypePk.FNOP) {
 
-            p = new Packet(input.readString(), input.readString());
+            String filename = input.readString();
+            String operation = input.readString();
+
+            String key = input.readString();
+
+            p = new Packet(filename, operation, key);
         }
 
         if (op == TypePk.DATA) {
