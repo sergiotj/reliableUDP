@@ -106,7 +106,7 @@ public class AgentUDP {
         dispatchDataFlow(socket, filename);
 
         // recebe ACK
-        this.receiveHandshake(socket, address, port, kryo, TypeAck.CONTROL);
+        receiveReliableInfo(socket, address, port, kryo, TypeAck.CONTROL);
     }
 
     public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException {
