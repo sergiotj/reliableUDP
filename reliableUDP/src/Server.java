@@ -23,6 +23,8 @@ public class Server {
 
         System.out.println("Server started at port 4445.");
 
+        while (true) {
+
             System.out.println("Waiting for connection...");
 
             // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
@@ -44,16 +46,16 @@ public class Server {
 
                 System.out.println("Connection received... Starting AgenteUDP to handle connection with client.");
 
-                ServerWorker worker = new ServerWorker(socket, address, portClient, this.sizeOfPacket, this.window, kryo);
+                ServerWorker worker = new ServerWorker(address, portClient, this.sizeOfPacket, this.window, kryo);
                 Thread t1 = new Thread(worker);
                 t1.start();
             }
-
+        }
     }
 
     public static void main(String [] args) {
 
-        Server sv = new Server(10, 10000);
+        Server sv = new Server(10, 5000);
 
         try {
 

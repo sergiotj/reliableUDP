@@ -17,9 +17,8 @@ public class ServerWorker implements Runnable {
 
     private Kryo kryo;
 
-    public ServerWorker(DatagramSocket socket, InetAddress address, int port, int sizeOfPacket, int window, Kryo kryo) {
+    public ServerWorker(InetAddress address, int port, int sizeOfPacket, int window, Kryo kryo) {
 
-        this.socket = socket;
         this.address = address;
         this.port = port;
         this.sizeOfPacket = sizeOfPacket;
@@ -31,10 +30,13 @@ public class ServerWorker implements Runnable {
     @Override
     public void run() {
 
-
-        AgentUDP agent = new AgentUDP(socket, address, port, sizeOfPacket, window, kryo);
-
         try {
+
+            this.socket = new DatagramSocket(4446);
+
+            System.out.println("Server worker started at " + socket.getLocalPort());
+
+            AgentUDP agent = new AgentUDP(socket, address, port, sizeOfPacket, window, kryo);
 
             Ack a = agent.receiveHandshake(socket, address, port, kryo, TypeAck.CONNECT);
 
@@ -46,7 +48,7 @@ public class ServerWorker implements Runnable {
 
             // 25 cenas para o gajo decidir-se...
             socket.setSoTimeout(0);
-            Packet p = agent.receivePacketInfo(socket, address, port, kryo, TypePk.FNOP);
+            Packet p = (Packet) agent.receiveReliableInfo(socket, address, port, kryo, TypePk.FNOP);
 
             String filename = p.getFilename();
 

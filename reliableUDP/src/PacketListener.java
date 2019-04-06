@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -35,6 +36,14 @@ public class PacketListener implements Runnable {
 
     @Override
     public void run() {
+
+        try {
+            socket.setSoTimeout(0);
+        } catch (SocketException exc) {
+
+            System.out.println("SOCKET TIMED-OUT");
+            return;
+        }
 
         // ciclo pacotes
         while(!stop) {

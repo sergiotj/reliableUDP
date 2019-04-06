@@ -13,6 +13,7 @@ public class Client {
 
     private int window;
     private int sizeOfPacket;
+    private int svPort;
 
     public Client(int window, int sizeOfPacket) {
 
@@ -34,7 +35,7 @@ public class Client {
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
-        Ack a = AgentUDP.sendHandshake(clientSocket, IPAddress, port, kryo, TypeAck.CONNECT);
+        Ack a = AgentUDP.sendHandshake(this, clientSocket, IPAddress, port, kryo, TypeAck.CONNECT);
 
         if (a == null) {
 
@@ -77,7 +78,7 @@ public class Client {
         String file = sentence.split(" ")[1];
         System.out.println("Starting AgenteUDP to handle connection with server.");
 
-        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, port, this.sizeOfPacket, this.window, kryo);
+        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, this.svPort, this.sizeOfPacket, this.window, kryo);
 
         System.out.println("quero o ficheiro: " + file);
 
@@ -96,9 +97,14 @@ public class Client {
         clientSocket.close();
     }
 
+    public void setSvPort(int port) {
+
+        this.svPort = port;
+    }
+
     public static void main(String args[]) {
 
-        Client cli = new Client(10, 10000);
+        Client cli = new Client(10, 5000);
 
         try {
 
