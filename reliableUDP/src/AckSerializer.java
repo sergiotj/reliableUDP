@@ -3,8 +3,6 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
-import java.lang.reflect.Type;
-
 public class AckSerializer extends Serializer<Ack> {
 
     private TypeAck op;
@@ -25,7 +23,7 @@ public class AckSerializer extends Serializer<Ack> {
             output.writeInt(a.getStatus());
         }
 
-        if (op == TypeAck.CONTROL || op == TypeAck.CONNECT) {
+        if (op == TypeAck.CONTROL || op == TypeAck.CONNECT || op == TypeAck.CLOSE) {
 
             String type = this.typeToString(a.getType());
 
@@ -46,7 +44,7 @@ public class AckSerializer extends Serializer<Ack> {
             a = new Ack(t, input.readInt(), input.readInt());
         }
 
-        if (op == TypeAck.CONTROL || op == TypeAck.CONNECT) {
+        if (op == TypeAck.CONTROL || op == TypeAck.CONNECT || op == TypeAck.CLOSE) {
 
             TypeAck t = this.stringToType(input.readString());
 

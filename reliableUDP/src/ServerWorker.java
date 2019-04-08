@@ -4,7 +4,6 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
-import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.security.InvalidKeyException;
@@ -36,13 +35,13 @@ public class ServerWorker implements Runnable {
 
         try {
 
-            this.socket = new DatagramSocket(4446);
+            this.socket = new DatagramSocket(4447);
 
             System.out.println("Server worker started at " + socket.getLocalPort());
 
             AgentUDP agent = new AgentUDP(socket, address, port, sizeOfPacket, window, kryo);
 
-            Ack a = agent.receiveHandshake(socket, address, port, kryo, TypeAck.CONNECT);
+            Ack a = agent.receiveHandshake(TypeAck.CONNECT);
 
             if (a == null) {
 
@@ -50,9 +49,9 @@ public class ServerWorker implements Runnable {
                 return;
             }
 
-            // 25 cenas para o gajo decidir-se...
+            // tempo infinito para mandar operação quando quiser
             socket.setSoTimeout(0);
-            Packet p = (Packet) agent.receiveReliableInfo(socket, address, port, kryo, TypePk.FNOP);
+            Packet p = (Packet) agent.receiveReliableInfo(TypePk.FNOP);
 
             String filename = p.getFilename();
 

@@ -1,6 +1,5 @@
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -9,11 +8,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
@@ -21,14 +16,11 @@ import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class AgentUDP {
 
@@ -64,23 +56,27 @@ public class AgentUDP {
             // envia get file e o servidor vai verificar se tem o ficheiro
             Packet p = new Packet(filename, "get", key);
 
-            this.sendReliableInfo(socket, address, port, kryo, p, TypePk.FNOP);
+            this.sendReliableInfo(p, TypePk.FNOP);
 
         }
 
         // recebe hash e nrParts do ficheiro
-        Packet p = (Packet) receiveReliableInfo(socket, address, port, kryo, TypePk.HASHPARTS);
+        Packet p = (Packet) receiveReliableInfo(TypePk.HASHPARTS);
 
         int nrParts = p.getParts();
         byte[] hashFile = p.getHash();
 
         // recebe ficheiro
-        receptionDataFlow(this.socket, nrParts, filename, hashFile);
+        receptionDataFlow(nrParts, filename, hashFile);
 
         // envia ACK
-        Ack a = new Ack(TypeAck.CONTROL, 1);
-        System.out.println("vai mandar OK");
-        sendReliableInfo(socket, address, port, kryo, a, TypeAck.CONTROL);
+        Ack a = new Ack(TypeAck.CLOSE, 1);
+
+        sendReliableInfo(a, TypeAck.CLOSE);
+
+        Thread.sleep(1000);
+
+        System.out.println("PROCESSO CONCLUIDO");
     }
 
     public void send(TypeEnt ent, String filename) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InterruptedException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
@@ -98,7 +94,7 @@ public class AgentUDP {
             // Envia pacote a dizer que quer mandar ficheiro
             Packet p = new Packet(filename, "put", key);
 
-            this.sendReliableInfo(socket, address, port, kryo, p, TypePk.FNOP);
+            this.sendReliableInfo(p, TypePk.FNOP);
 
         }
 
@@ -108,20 +104,22 @@ public class AgentUDP {
 
         Packet p = new Packet(hash, nrParts);
 
-        this.sendReliableInfo(socket, address, port, kryo, p, TypePk.HASHPARTS);
+        this.sendReliableInfo(p, TypePk.HASHPARTS);
 
         System.out.println("preparado para enviar");
 
         // envia ficheiro
-        dispatchDataFlow(socket, filename);
+        dispatchDataFlow(filename);
 
         // recebe ACK
-        receiveReliableInfo(socket, address, port, kryo, TypeAck.CONTROL);
+        receiveReliableInfo(TypeAck.CLOSE);
+
+        System.out.println("PROCESSO CONCLUIDO");
     }
 
-    public void receptionDataFlow(DatagramSocket socket, int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    public void receptionDataFlow(int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
-        String directoryName = "out";
+        String directoryName = "sent";
         File directory = new File(directoryName);
 
         if (!directory.exists()) {
@@ -219,7 +217,7 @@ public class AgentUDP {
         }
     }
 
-    public void dispatchDataFlow(DatagramSocket socket, String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+    public void dispatchDataFlow(String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         File file = new File(fileName);
 
@@ -229,20 +227,20 @@ public class AgentUDP {
 
         CopyOnWriteArraySet<Integer> success = new CopyOnWriteArraySet<>();
 
-        System.out.println("TAMANHO DO ARRAY:" + chunks.size());
+        AtomicBoolean stop = new AtomicBoolean(false);
 
         int parts = chunks.size();
 
         Semaphore windowSemaph = new Semaphore(window + 1);
 
-        AckListener aListener = new AckListener(socket, address, port, success, chunks, priority, windowSemaph, parts);
+        AckListener aListener = new AckListener(socket, success, chunks, priority, windowSemaph, stop);
         Thread t1 = new Thread(aListener);
         t1.start();
 
         int index = 0;
         int savedIndex = 0;
 
-        System.out.println("partes a enviar : "+ parts);
+        System.out.println("Partes a enviar: " + parts);
 
         while (true) {
 
@@ -263,7 +261,7 @@ public class AgentUDP {
 
             }
 
-            if (success.size() == chunks.size() && priority.isEmpty()){
+            if ((success.size() == chunks.size() && priority.isEmpty()) | stop.get()){
 
                 t1.interrupt();
                 System.out.println("Ficheiro enviado com sucesso.");
@@ -273,6 +271,7 @@ public class AgentUDP {
 
             while (windowSemaph.availablePermits() >= 0) {
 
+                if (stop.get()) break;
                 if (success.size() == chunks.size()) break;
 
                 for (; index < chunks.size();) {
@@ -344,8 +343,8 @@ public class AgentUDP {
 
                 retry++;
                 System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
-                socket.send(sendPacket);
-                System.out.println("Mandei um Handshake");
+                // socket.send(sendPacket);
+                // System.out.println("Mandei um Handshake");
 
             }
         }
@@ -358,7 +357,7 @@ public class AgentUDP {
         return Ack.bytesToAck(kryo, message, type);
     }
 
-    public Ack receiveHandshake(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, TypeAck type) throws IOException {
+    public Ack receiveHandshake(TypeAck type) throws IOException {
 
         // só fazer em diferentes de connect pq no connect ja recebeu no server.java
         if (!type.equals(TypeAck.CONNECT)) {
@@ -370,7 +369,7 @@ public class AgentUDP {
 
         Ack ack = new Ack(type, 1);
         byte[] ackB = Ack.ackToBytes(kryo, ack, type);
-        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
+        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, address, port);
 
         byte[] message = new byte[200];
         int retry = 0;
@@ -399,7 +398,6 @@ public class AgentUDP {
 
             } catch (IllegalArgumentException ex) {
 
-                retry++;
                 System.out.println("Recebeu pacote fora do contexto... descartado");
                 socket.send(sendPacket);
                 System.out.println("Mandei um Handshake");
@@ -409,7 +407,9 @@ public class AgentUDP {
         return null;
     }
 
-    public static Ack sendReliableInfo(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, Object info, Enum typeP) throws IOException {
+    private Ack sendReliableInfo(Object info, Enum typeP) throws IOException {
+
+        socket.setSoTimeout(4000);
 
         boolean packet = false;
         if (Objects.equals(typeP, TypePk.FNOP) || Objects.equals(typeP, TypePk.HASHPARTS)) {
@@ -425,13 +425,13 @@ public class AgentUDP {
         }
 
         if (!packet) {
-
             infoB = Ack.ackToBytes(kryo, (Ack) info, (TypeAck) typeP);
         }
 
-        DatagramPacket sendPacket = new DatagramPacket(infoB, infoB.length, IPAddress, port);
-        socket.send(sendPacket);
+        DatagramPacket sendPacket = new DatagramPacket(infoB, infoB.length, address, port);
 
+        socket.send(sendPacket);
+        System.out.println("Enviei " + typeP);
         byte[] message = new byte[200];
         DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
 
@@ -441,45 +441,61 @@ public class AgentUDP {
 
             try {
 
-                socket.setSoTimeout(2000);
                 socket.receive(receivedPacket);
 
                 message = receivedPacket.getData();
-                break;
+
+                Ack ack = new Ack(TypeAck.CONTROL, 1);
+                byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
+                DatagramPacket sendPacket1 = new DatagramPacket(ackB, ackB.length, address, port);
+
+                socket.send(sendPacket1);
+
+                Ack ackb = Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
+
+                System.out.println("Recebi ACK: " + ackb.getType());
+                System.out.println("Enviei CONTROL");
+
+                if (ackb.getType() != TypeAck.CONTROL) throw new KryoException("Não é do tipo pretendido.");
+
+                return ackb;
 
             } catch (SocketTimeoutException timeout) {
 
                 retry++;
                 System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
                 socket.send(sendPacket);
+                System.out.println("Enviei " + typeP);
+
+            } catch (IllegalArgumentException | KryoException ex) {
+
+                System.out.println("Recebeu pacote fora do contexto... descartado");
+                socket.send(sendPacket);
+                System.out.println("Enviei " + typeP);
             }
+
         }
 
         if (retry == 5) return null;
 
-        Ack ack = new Ack(TypeAck.CONTROL, 1);
-        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
-        DatagramPacket sendPacket1 = new DatagramPacket(ackB, ackB.length, IPAddress, port);
-
-        socket.send(sendPacket1);
-
-        return Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
+        return null;
     }
 
-    public Object receiveReliableInfo(DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, Enum typeP) throws IOException {
+    public Object receiveReliableInfo(Enum typeP) throws IOException {
 
         boolean packet = false;
         if (Objects.equals(typeP, TypePk.FNOP) || Objects.equals(typeP, TypePk.HASHPARTS)) {
 
             packet = true;
+
+            if (typeP == TypePk.FNOP) {
+                socket.setSoTimeout(0);
+            }
+
+            else socket.setSoTimeout(4000);
         }
 
-        byte[] packetB = new byte[50];
-        DatagramPacket receivePacket = new DatagramPacket(packetB, packetB.length);
-
-        Ack ack = new Ack(TypeAck.CONTROL, 1);
-        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
-        DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
+        byte[] info = new byte[50];
 
         int retry = 0;
 
@@ -487,39 +503,90 @@ public class AgentUDP {
 
             try {
 
-                if (typeP == TypePk.FNOP && retry == 0) socket.setSoTimeout(0);
-                else socket.setSoTimeout(4000);
-
+                DatagramPacket receivePacket = new DatagramPacket(info, info.length);
                 socket.receive(receivePacket);
 
-                socket.send(sendPacket);
+                if (packet) {
 
-                if (receivePacket != null) {
+                    Packet p = Packet.bytesToPacket(kryo, receivePacket.getData(), (TypePk) typeP);
 
-                    if (packet) {
-                        Packet p = Packet.bytesToPacket(kryo, receivePacket.getData(), (TypePk) typeP);
+                    System.out.println("Recebi pacote: ");
 
-                        return p;
-                    }
+                }
 
-                    if (!packet) {
-                        Ack a = Ack.bytesToAck(kryo, receivePacket.getData(), (TypeAck) typeP);
+                if (!packet) {
 
-                        return a;
-                    }
+                    Ack a1 = Ack.bytesToAck(kryo, receivePacket.getData(), (TypeAck) typeP);
+
+                    System.out.println("Recebi ACK: " + a1.getType());
+
+                }
+
+                break;
+
+            } catch (SocketTimeoutException timeout) {
+
+                retry++;
+                System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
+
+
+            } catch (IllegalArgumentException | KryoException ex) {
+
+                retry++;
+                System.out.println("Recebeu pacote fora do contexto... descartado");
+            }
+        }
+
+        if (retry == 5) return null;
+
+        Ack ack = new Ack(TypeAck.CONTROL, 1);
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
+        DatagramPacket sendPacket1 = new DatagramPacket(ackB, ackB.length, address, port);
+
+        socket.send(sendPacket1);
+        System.out.println("Enviei CONTROL");
+
+        while (retry < 5) {
+
+            try {
+                byte[] message = new byte[200];
+
+                DatagramPacket receivedPacket = new DatagramPacket(message, message.length);
+                socket.setSoTimeout(4000);
+                socket.receive(receivedPacket);
+
+                if (packet) {
+
+                    Ack a1 = Ack.bytesToAck(kryo, receivedPacket.getData(), TypeAck.CONTROL);
+
+                    System.out.println("Recebi ACK de packet: ");
+
+                    return Packet.bytesToPacket(kryo, info, (TypePk) typeP);
+                }
+
+                if (!packet) {
+
+                    Ack a1 = Ack.bytesToAck(kryo, receivedPacket.getData(), TypeAck.CONTROL);
+
+                    System.out.println("Recebi ACK: " + a1.getType());
+                    if (a1.getType() != TypeAck.CONTROL) throw new KryoException();
+
+                    return Ack.bytesToAck(kryo, info, (TypeAck) typeP);
                 }
 
             } catch (SocketTimeoutException timeout) {
 
                 retry++;
                 System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
-                socket.send(sendPacket);
+                socket.send(sendPacket1);
+                System.out.println("Enviei CONTROL");
 
-            } catch (KryoException underflow) {
 
-                retry++;
+            } catch (IllegalArgumentException | KryoException ex) {
+
                 System.out.println("Recebeu pacote fora do contexto... descartado");
-                socket.send(sendPacket);
+                socket.send(sendPacket1);
+                System.out.println("Enviei CONTROL");
             }
         }
 

@@ -1,8 +1,6 @@
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-import org.omg.CORBA.DynAnyPackage.Invalid;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
@@ -98,8 +96,6 @@ public class Packet implements Serializable {
         byte[] fileContent = Files.readAllBytes(filename.toPath());
 
         ArrayList<Packet> packets = new ArrayList<>();
-
-        System.out.println("Tamanho da cena: " + fileContent.length);
 
         boolean flag;
 

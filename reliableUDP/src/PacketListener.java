@@ -38,7 +38,7 @@ public class PacketListener implements Runnable {
     public void run() {
 
         try {
-            socket.setSoTimeout(0);
+            socket.setSoTimeout(6000);
         } catch (SocketException exc) {
 
             System.out.println("SOCKET TIMED-OUT");
