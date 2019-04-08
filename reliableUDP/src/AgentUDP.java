@@ -555,29 +555,26 @@ public class AgentUDP {
                 socket.setSoTimeout(4000);
                 socket.receive(receivedPacket);
 
+                if (retry == 5) {
+                    System.out.println("Falha na comunicação. Pode ocorrer erros...");
+                }
+
+                Ack a1 = Ack.bytesToAck(kryo, receivedPacket.getData(), TypeAck.CONTROL);
+                System.out.println("Recebi ACK: " + a1.getType());
+                if (a1.getType() != TypeAck.CONTROL) throw new KryoException();
+
                 if (packet) {
-
-                    Ack a1 = Ack.bytesToAck(kryo, receivedPacket.getData(), TypeAck.CONTROL);
-
-                    System.out.println("Recebi ACK de packet: ");
-
                     return Packet.bytesToPacket(kryo, info, (TypePk) typeP);
                 }
 
                 if (!packet) {
-
-                    Ack a1 = Ack.bytesToAck(kryo, receivedPacket.getData(), TypeAck.CONTROL);
-
-                    System.out.println("Recebi ACK: " + a1.getType());
-                    if (a1.getType() != TypeAck.CONTROL) throw new KryoException();
-
                     return Ack.bytesToAck(kryo, info, (TypeAck) typeP);
                 }
 
             } catch (SocketTimeoutException timeout) {
 
                 retry++;
-                System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
+                System.out.println("TIMEOUT... Retry " + retry);
                 socket.send(sendPacket1);
                 System.out.println("Enviei CONTROL");
 

@@ -61,11 +61,9 @@ public class Client {
         String firstWord = null;
         String sentence = null;
 
-        System.out.println("Escreva: put file ou get file");
+        System.out.println("Escreva: put file, get file ou quit para se desconectar");
 
-        while (!right) {
-
-            sentence = inFromUser.readLine();
+        while (!(sentence = inFromUser.readLine()).equals("quit")) {
 
             firstWord = sentence.substring(0, sentence.indexOf(' '));
 
@@ -73,29 +71,29 @@ public class Client {
 
                 System.out.println("Operação inválida");
 
-            } else right = true;
+            }
 
+            String file = sentence.split(" ")[1];
+            System.out.println("Starting AgenteUDP to handle connection with server.");
+
+            AgentUDP agent = new AgentUDP(clientSocket, IPAddress, this.svPort, this.sizeOfPacket, this.window, kryo);
+
+            System.out.println("quero o ficheiro: " + file);
+
+            if (firstWord.equals("get")) {
+
+                agent.receive(TypeEnt.CLIENT, file);
+
+            }
+
+            if (firstWord.equals("put")) {
+
+                agent.send(TypeEnt.CLIENT, file);
+
+            }
         }
 
-        String file = sentence.split(" ")[1];
-        System.out.println("Starting AgenteUDP to handle connection with server.");
-
-        AgentUDP agent = new AgentUDP(clientSocket, IPAddress, this.svPort, this.sizeOfPacket, this.window, kryo);
-
-        System.out.println("quero o ficheiro: " + file);
-
-        if (firstWord.equals("get")) {
-
-            agent.receive(TypeEnt.CLIENT, file);
-
-        }
-
-        if (firstWord.equals("put")) {
-
-            agent.send(TypeEnt.CLIENT, file);
-
-        }
-
+        System.out.println("Desconectado!");
         clientSocket.close();
     }
 
