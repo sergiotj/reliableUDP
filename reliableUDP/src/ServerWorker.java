@@ -6,6 +6,7 @@ import javax.crypto.NoSuchPaddingException;
 import java.io.IOException;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 
@@ -49,9 +50,13 @@ public class ServerWorker implements Runnable {
                 return;
             }
 
-            // tempo infinito para mandar operação quando quiser
-            socket.setSoTimeout(0);
             Packet p = (Packet) agent.receiveReliableInfo(TypePk.FNOP);
+
+            if (p == null) {
+
+                socket.close();
+                return;
+            }
 
             String filename = p.getFilename();
 
@@ -75,7 +80,6 @@ public class ServerWorker implements Runnable {
         } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException | InvalidKeyException | InterruptedException exc) {
 
             exc.printStackTrace();
-
         }
 
     }

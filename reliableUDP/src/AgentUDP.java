@@ -63,6 +63,12 @@ public class AgentUDP {
         // recebe hash e nrParts do ficheiro
         Packet p = (Packet) receiveReliableInfo(TypePk.HASHPARTS);
 
+        if (p == null) {
+
+            System.out.println("Falha na conexão. Terminado.");
+            return;
+        }
+
         int nrParts = p.getParts();
         byte[] hashFile = p.getHash();
 
@@ -483,13 +489,15 @@ public class AgentUDP {
 
     public Object receiveReliableInfo(Enum typeP) throws IOException {
 
+        int disconnect = 0;
         boolean packet = false;
         if (Objects.equals(typeP, TypePk.FNOP) || Objects.equals(typeP, TypePk.HASHPARTS)) {
 
             packet = true;
 
             if (typeP == TypePk.FNOP) {
-                socket.setSoTimeout(0);
+                socket.setSoTimeout(15000);
+                disconnect = 1;
             }
 
             else socket.setSoTimeout(4000);
@@ -525,6 +533,12 @@ public class AgentUDP {
                 break;
 
             } catch (SocketTimeoutException timeout) {
+
+                if (disconnect == 1) {
+
+                    System.out.println("Cliente Inativo, conexão encerrada");
+                    return null;
+                }
 
                 retry++;
                 System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
