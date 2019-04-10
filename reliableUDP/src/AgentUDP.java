@@ -49,8 +49,8 @@ public class AgentUDP {
         this.window = window;
         this.kryo = kryo;
         this.key = "ChaveEncriProjCC"; // 128 bit key
-        this.lastRtt = new AtomicLong(100);
-        this.recentRtt = new AtomicLong(100);
+        this.lastRtt = new AtomicLong(2000);
+        this.recentRtt = new AtomicLong(2000);
     }
 
     public void receive(TypeEnt ent, String filename) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
@@ -117,9 +117,11 @@ public class AgentUDP {
 
         Packet p = new Packet(hash, nrParts, new Timestamp(System.currentTimeMillis()));
 
-        this.sendReliableInfo(p, TypePk.HASHPARTS);
+        Ack a = this.sendReliableInfo(p, TypePk.HASHPARTS);
+        Long time = AgentUDP.calculateRTT(System.currentTimeMillis(), a.getTimestamp());
 
-        System.out.println("preparado para enviar");
+        lastRtt.set(time * 2);
+        recentRtt.set(time * 2);
 
         // envia ficheiro
         dispatchDataFlow(filename);
@@ -169,9 +171,7 @@ public class AgentUDP {
 
                 while (!buffer.containsKey(iWritten.get())) {
 
-                    System.out.println("O wait está em: " + iWait);
-
-                    Thread.sleep(lastRtt.get());
+                    buffer.wait(lastRtt.get());
 
                     if (buffer.containsKey(iWritten.get())) break;
 
@@ -185,11 +185,7 @@ public class AgentUDP {
                     DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                     socket.send(sendPacket);
 
-                    buffer.wait(lastRtt.get());
-
                 }
-
-                iWait = 0;
             }
 
              // se tem o ficheiro
