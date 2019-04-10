@@ -114,16 +114,18 @@ public class AckListener implements Runnable {
 
                     int ackReceived = a.getSeqNumber();
 
-                    System.out.println("Pedido de reenvio = " + ackReceived);
+                    // evitar repetidos
+                    if (!priority.contains(chunks.get(ackReceived))) {
 
-                    // reenvio... logo ele precisa que lhe mande um pacote
-                    if (windowSemaph.availablePermits() == 0) {
-                        windowSemaph.release();
+                        System.out.println("Pedido de reenvio = " + ackReceived);
+
+                        // reenvio... logo ele precisa que lhe mande um pacote
+                        if (windowSemaph.availablePermits() == 0) {
+                            windowSemaph.release();
+                        }
+
+                        priority.add(chunks.get(ackReceived));
                     }
-
-                    priority.add(chunks.get(ackReceived));
-
-                    System.out.println("WINDOW: " + windowSemaph.availablePermits());
 
                 }
 

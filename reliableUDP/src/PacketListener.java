@@ -120,7 +120,7 @@ public class PacketListener implements Runnable {
 
                 else {
 
-                    System.out.println("Pacote " + p.getSeqNumber() + "fora do contexto ou duplicado! DESCARTADO!");
+                    System.out.println("Pacote " + p.getSeqNumber() + " descartado!");
 
                 }
 

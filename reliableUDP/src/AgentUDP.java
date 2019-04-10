@@ -145,7 +145,6 @@ public class AgentUDP {
         String newFilename = directoryName + "/" + filename;
 
         AtomicInteger iWritten = new AtomicInteger(0);
-        int iWait = 0;
 
         System.out.println("partes: " + nrParts);
 
@@ -164,11 +163,18 @@ public class AgentUDP {
 
         cipher.init(Cipher.DECRYPT_MODE, aesKey);
 
+        AtomicInteger dataReceived = new AtomicInteger(0);
+        AtomicBoolean stop = new AtomicBoolean(false);
+
+        Thread t2 = new Thread(new Timer(dataReceived, stop));
+        t2.start();
+
         // ciclo de escrita
         while(true) {
 
             synchronized (buffer) {
 
+                Long maxWait = lastRtt.get();
                 while (!buffer.containsKey(iWritten.get())) {
 
                     buffer.wait(lastRtt.get());
@@ -185,6 +191,10 @@ public class AgentUDP {
                     DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                     socket.send(sendPacket);
 
+                    Thread.sleep(maxWait);
+
+                    maxWait = maxWait / 2;
+
                 }
             }
 
@@ -196,6 +206,8 @@ public class AgentUDP {
                     Packet p = buffer.get(iWritten.get());
 
                     byte[] dataToBeWrite = cipher.doFinal(p.getData());
+
+                    dataReceived.getAndAdd(dataToBeWrite.length);
 
                     outToFile.write(dataToBeWrite);
                     System.out.println("A escrever o segmento: " + iWritten);
@@ -214,6 +226,7 @@ public class AgentUDP {
 
                     t1.stop();
                     t1.interrupt();
+                    stop.set(true);
                     System.out.println("Ficheiro recebido com sucesso.");
                     return;
 
@@ -292,9 +305,9 @@ public class AgentUDP {
 
                 for (; index < chunks.size();) {
 
-                    Packet p = chunks.get(index);
-
                     if (!priority.isEmpty()) break;
+
+                    Packet p = chunks.get(index);
 
                     if (success.contains(p.getSeqNumber())) continue;
 
