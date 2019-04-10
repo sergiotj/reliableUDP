@@ -193,7 +193,7 @@ public class AgentUDP {
 
                     Thread.sleep(maxWait);
 
-                    maxWait = maxWait / 2;
+                    maxWait = (long) (maxWait / 0.6);
 
                 }
             }

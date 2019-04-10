@@ -1,4 +1,5 @@
 import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.KryoException;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -128,7 +129,7 @@ public class PacketListener implements Runnable {
 
                 ex.printStackTrace();
 
-            } catch (NegativeArraySizeException nase) {
+            } catch (NegativeArraySizeException | KryoException nase) {
 
                 System.out.println("Foi recebido um pacote que não é de dados. Foi descartado!");
                 continue;
