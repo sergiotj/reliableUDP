@@ -3,6 +3,8 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
+import java.sql.Timestamp;
+
 public class PacketSerializer extends Serializer<Packet> {
 
     private TypePk op;
@@ -31,6 +33,8 @@ public class PacketSerializer extends Serializer<Packet> {
 
             output.writeVarInt(p.getHash().length + 1, true);
             output.writeBytes(p.getHash());
+
+            output.writeString(p.getTimestamp().toString());
         }
 
         if (op == TypePk.HASHPARTS) {
@@ -39,6 +43,7 @@ public class PacketSerializer extends Serializer<Packet> {
             output.writeBytes(p.getHash());
 
             output.writeInt(p.getParts());
+            output.writeString(p.getTimestamp().toString());
 
         }
     }
@@ -67,7 +72,7 @@ public class PacketSerializer extends Serializer<Packet> {
             int length2 = input.readVarInt(true);
             byte[] hash = input.readBytes(length2 - 1);
 
-            p = new Packet(data, seqNumber, hash);
+            p = new Packet(data, seqNumber, hash, Timestamp.valueOf(input.readString()));
         }
 
         if (op == TypePk.HASHPARTS) {
@@ -77,7 +82,7 @@ public class PacketSerializer extends Serializer<Packet> {
 
             int parts = input.readInt();
 
-            p = new Packet(hash, parts);
+            p = new Packet(hash, parts, Timestamp.valueOf(input.readString()));
         }
 
         return p;

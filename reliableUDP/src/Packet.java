@@ -12,6 +12,8 @@ import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -24,6 +26,7 @@ public class Packet implements Serializable {
     private String operation;
     private int nrParts;
     private String key;
+    private Timestamp rtt;
 
     public Packet(byte[] fullPacket) {
 
@@ -37,17 +40,19 @@ public class Packet implements Serializable {
         this.key = key;
     }
 
-    public Packet(byte[] data, int seqNumber, byte[] hash) {
+    public Packet(byte[] data, int seqNumber, byte[] hash, Timestamp rtt) {
 
         this.data = data;
         this.seqNumber = seqNumber;
         this.hash = hash;
+        this.rtt = rtt;
     }
 
-    public Packet(byte[] hash, int nrParts) {
+    public Packet(byte[] hash, int nrParts, Timestamp rtt) {
 
         this.hash = hash;
         this.nrParts = nrParts;
+        this.rtt = rtt;
     }
 
     public String getFilename() {
@@ -83,6 +88,11 @@ public class Packet implements Serializable {
     public String getKey() {
 
         return this.key;
+    }
+
+    public Timestamp getTimestamp() {
+
+        return this.rtt;
     }
 
     public void setSeqNumber(int seqNumber) {
@@ -174,6 +184,11 @@ public class Packet implements Serializable {
 
         this.hash = Arrays.copyOf(hash, 8);
 
+    }
+
+    public void addTimestamp(Timestamp ts) {
+
+        this.rtt = ts;
     }
 
     public static Packet bytesToPacket(Kryo kryo, byte[] bytes, TypePk type) {

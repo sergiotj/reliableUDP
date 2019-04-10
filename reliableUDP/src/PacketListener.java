@@ -7,6 +7,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -24,7 +25,9 @@ public class PacketListener implements Runnable {
 
     private Map<Integer, Packet> buffer;
 
-    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> buffer, AtomicInteger iWritten){
+    private int maxSize;
+
+    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> buffer, AtomicInteger iWritten, Integer maxSize){
 
         this.socket = socket;
         this.address = address;
@@ -32,13 +35,14 @@ public class PacketListener implements Runnable {
         this.kryo = new Kryo();
         this.buffer = buffer;
         this.iWritten = iWritten;
+        this.maxSize = maxSize;
     }
 
     @Override
     public void run() {
 
         try {
-            socket.setSoTimeout(6000);
+            socket.setSoTimeout(10000);
         } catch (SocketException exc) {
 
             System.out.println("SOCKET TIMED-OUT");
@@ -69,7 +73,10 @@ public class PacketListener implements Runnable {
                         System.out.println("Chegou um pacote corrompido. Sending ACK to resend...");
 
                         // Send acknowledgement
-                        Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), -1);
+
+                        int size = maxSize - buffer.size();
+
+                        Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), -1, size, p.getTimestamp());
                         byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
                         DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                         socket.send(sendPacket);
@@ -89,12 +96,23 @@ public class PacketListener implements Runnable {
                         }
 
                         // Send acknowledgement
-                        Ack ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1);
+
+                        int size = maxSize - buffer.size();
+
+                        Ack ack = null;
+
+                        if (size < 0) {
+
+                            ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), -1, size, p.getTimestamp());
+                        } else {
+                            ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1, size, p.getTimestamp());
+                        }
+
                         byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
                         DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                         socket.send(sendPacket);
 
-                        System.out.println("Mandei um ACK" + p.getSeqNumber());
+                        System.out.println("Mandei o ACK = " + p.getSeqNumber() + " com window = " + ack.getWindow());
 
                     }
 

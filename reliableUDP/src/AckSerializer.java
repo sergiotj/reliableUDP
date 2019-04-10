@@ -3,6 +3,8 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
+import java.sql.Timestamp;
+
 public class AckSerializer extends Serializer<Ack> {
 
     private TypeAck op;
@@ -21,6 +23,8 @@ public class AckSerializer extends Serializer<Ack> {
             output.writeString(type);
             output.writeInt(a.getSeqNumber());
             output.writeInt(a.getStatus());
+            output.writeInt(a.getWindow());
+            output.writeString(a.getTimestamp().toString());
         }
 
         if (op == TypeAck.CONTROL || op == TypeAck.CONNECT || op == TypeAck.CLOSE) {
@@ -29,6 +33,7 @@ public class AckSerializer extends Serializer<Ack> {
 
             output.writeString(type);
             output.writeInt(a.getStatus());
+            output.writeString(a.getTimestamp().toString());
         }
 
     }
@@ -41,14 +46,14 @@ public class AckSerializer extends Serializer<Ack> {
 
             TypeAck t = this.stringToType(input.readString());
 
-            a = new Ack(t, input.readInt(), input.readInt());
+            a = new Ack(t, input.readInt(), input.readInt(), input.readInt(), Timestamp.valueOf(input.readString()));
         }
 
         if (op == TypeAck.CONTROL || op == TypeAck.CONNECT || op == TypeAck.CLOSE) {
 
             TypeAck t = this.stringToType(input.readString());
 
-            a = new Ack(t, input.readInt());
+            a = new Ack(t, input.readInt(), Timestamp.valueOf(input.readString()));
 
         }
 

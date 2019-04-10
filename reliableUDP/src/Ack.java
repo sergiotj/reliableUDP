@@ -3,25 +3,32 @@ import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 
 import java.io.*;
+import java.sql.Timestamp;
 
 public class Ack implements Serializable {
 
     private TypeAck type;
     private int seqNumber;
     private int status;
+    private int window;
 
-    public Ack(TypeAck type, int seqNumber, int status) {
+    private Timestamp rtt;
+
+    public Ack(TypeAck type, int seqNumber, int status, int window, Timestamp rtt) {
 
         this.type = type;
         this.seqNumber = seqNumber;
         this.status = status;
+        this.window = window;
+        this.rtt = rtt;
 
     }
 
-    public Ack(TypeAck type, int status) {
+    public Ack(TypeAck type, int status, Timestamp rtt) {
 
         this.type = type;
         this.status = status;
+        this.rtt = rtt;
 
     }
 
@@ -38,6 +45,16 @@ public class Ack implements Serializable {
     public int getStatus() {
 
         return this.status;
+    }
+
+    public int getWindow() {
+
+        return this.window;
+    }
+
+    public Timestamp getTimestamp() {
+
+        return this.rtt;
     }
 
     public static Ack bytesToAck(Kryo kryo, byte[] bytes, TypeAck type) {

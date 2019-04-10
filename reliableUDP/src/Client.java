@@ -57,7 +57,6 @@ public class Client {
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
-        boolean right = false;
         String firstWord = null;
         String sentence = null;
 

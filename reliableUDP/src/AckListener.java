@@ -1,12 +1,15 @@
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
+import sun.management.Agent;
 
 import java.io.IOException;
 import java.net.*;
+import java.sql.Timestamp;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class AckListener implements Runnable {
 
@@ -19,11 +22,13 @@ public class AckListener implements Runnable {
 
     private CopyOnWriteArrayList<Packet> priority;
 
-    private Semaphore windowSemaph;
+    private ResizeableSemaphore windowSemaph;
 
     private AtomicBoolean stop;
+    private AtomicLong recentRtt;
+    private AtomicLong lastRtt;
 
-    public AckListener(DatagramSocket socket, CopyOnWriteArraySet<Integer> success, CopyOnWriteArrayList<Packet> chunks, CopyOnWriteArrayList<Packet> priority, Semaphore windowSemaph, AtomicBoolean stop){
+    public AckListener(DatagramSocket socket, CopyOnWriteArraySet<Integer> success, CopyOnWriteArrayList<Packet> chunks, CopyOnWriteArrayList<Packet> priority, ResizeableSemaphore windowSemaph, AtomicBoolean stop, AtomicLong recentRtt, AtomicLong lastRtt){
 
         this.socket = socket;
         this.chunks = chunks;
@@ -32,6 +37,8 @@ public class AckListener implements Runnable {
         this.kryo = new Kryo();
         this.success = success;
         this.stop = stop;
+        this.recentRtt = recentRtt;
+        this.lastRtt = lastRtt;
     }
 
     // SERVER
@@ -83,11 +90,23 @@ public class AckListener implements Runnable {
 
                     int ackReceived = a.getSeqNumber();
 
-                    System.out.println("Ack received: " + ackReceived);
+                    Long rtt = 0L;
+
+                    if (a.getTimestamp().getTime() > 0) {
+
+                        rtt = AgentUDP.calculateRTT(System.currentTimeMillis(), a.getTimestamp());
+                        Long calculatedRtt = (recentRtt.get() * (long) 0.25 + lastRtt.get() * (long) 0.35 + rtt * (long) 0.40)/3;
+                        recentRtt = lastRtt;
+                        lastRtt.set(calculatedRtt);
+                    }
+
+                    System.out.println("Ack received: " + ackReceived + " -> WINDOW = " + a.getWindow() + " -> RTT " + rtt);
 
                     success.add(ackReceived);
 
-                    windowSemaph.release();
+                    windowSemaph.reducePermits(a.getWindow());
+
+                    System.out.println("WINDOW: " + windowSemaph.availablePermits());
 
                 }
 
@@ -97,9 +116,14 @@ public class AckListener implements Runnable {
 
                     System.out.println("Pedido de reenvio = " + ackReceived);
 
+                    // reenvio... logo ele precisa que lhe mande um pacote
+                    if (windowSemaph.availablePermits() == 0) {
+                        windowSemaph.release();
+                    }
+
                     priority.add(chunks.get(ackReceived));
 
-                    windowSemaph.release();
+                    System.out.println("WINDOW: " + windowSemaph.availablePermits());
 
                 }
 
@@ -111,9 +135,13 @@ public class AckListener implements Runnable {
                 System.out.println("Socket timed out waiting for ACKs");
                 return;
 
-            } catch (KryoException ioex) {
+            } catch (KryoException | IllegalArgumentException ioex) {
 
-                System.out.println("exceção");
+                System.out.println("FECHOU");
+                System.out.println("ACABOU A ESPERA POR ACKS");
+
+                stop.getAndSet(true);
+                return;
 
             } catch (IOException ioex) {
 
