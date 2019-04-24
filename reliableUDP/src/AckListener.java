@@ -100,8 +100,9 @@ public class AckListener implements Runnable {
 
                     success.add(ackReceived);
 
-                    int congestWindow = windowSemaph.availablePermits() + 1;
+                    int congestWindow = (int) Math.pow(2, windowSemaph.availablePermits() + 1);
                     int flowWindow = a.getWindow();
+                    if (flowWindow < 0) flowWindow = 0;
                     int finalWindow = Math.min(congestWindow, flowWindow);
 
                     windowSemaph.changePermits(finalWindow);
@@ -118,6 +119,14 @@ public class AckListener implements Runnable {
                     if (!priority.contains(chunks.get(ackReceived))) {
 
                         System.out.println("Pedido de reenvio = " + ackReceived);
+
+                        int congestWindow = windowSemaph.availablePermits() / 2;
+                        int flowWindow = a.getWindow();
+                        if (flowWindow < 0) flowWindow = 0;
+
+                        int finalWindow = Math.min(congestWindow, flowWindow);
+
+                        windowSemaph.changePermits(finalWindow);
 
                         // reenvio... logo ele precisa que lhe mande um pacote
                         if (windowSemaph.availablePermits() == 0) {

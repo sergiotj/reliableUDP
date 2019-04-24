@@ -149,11 +149,9 @@ public class AgentUDP {
 
         FileOutputStream outToFile = new FileOutputStream(newFilename);
 
-        int maxSize = 5;
+        Map<Integer, Packet> buffer = Collections.synchronizedMap(new HashMap<>(this.window));
 
-        Map<Integer, Packet> buffer = Collections.synchronizedMap(new HashMap<>(maxSize));
-
-        PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten, maxSize);
+        PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten, this.window);
         Thread t1 = new Thread(pListener);
         t1.start();
 
@@ -183,7 +181,7 @@ public class AgentUDP {
                     // pedir reenvio
                     System.out.println("PEDINDO REENVIO do " + iWritten.get());
 
-                    int size = maxSize - buffer.size();
+                    int size = this.window - buffer.size();
 
                     Ack ack = new Ack(TypeAck.DATAFLOW, iWritten.get(), -1, size, new Timestamp(-1));
                     byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
@@ -254,7 +252,7 @@ public class AgentUDP {
         int parts = chunks.size();
 
         ResizeableSemaphore windowSemaph = new ResizeableSemaphore();
-        windowSemaph.release(5);
+        windowSemaph.release(1);
 
         AckListener aListener = new AckListener(socket, success, chunks, priority, windowSemaph, stop, recentRtt, lastRtt);
         Thread t1 = new Thread(aListener);
