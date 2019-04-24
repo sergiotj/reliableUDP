@@ -1,5 +1,4 @@
 import com.esotericsoftware.kryo.Kryo;
-
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;

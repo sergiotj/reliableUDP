@@ -1,13 +1,9 @@
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.KryoException;
-import sun.management.Agent;
-
 import java.io.IOException;
 import java.net.*;
-import java.sql.Timestamp;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -104,9 +100,13 @@ public class AckListener implements Runnable {
 
                     success.add(ackReceived);
 
-                    windowSemaph.reducePermits(a.getWindow());
+                    int congestWindow = windowSemaph.availablePermits() + 1;
+                    int flowWindow = a.getWindow();
+                    int finalWindow = Math.min(congestWindow, flowWindow);
 
-                    System.out.println("WINDOW: " + windowSemaph.availablePermits());
+                    windowSemaph.reducePermits(finalWindow);
+
+                    System.out.println("WINDOW: " + finalWindow);
 
                 }
 
