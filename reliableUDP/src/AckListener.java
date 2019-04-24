@@ -104,7 +104,7 @@ public class AckListener implements Runnable {
                     int flowWindow = a.getWindow();
                     int finalWindow = Math.min(congestWindow, flowWindow);
 
-                    windowSemaph.reducePermits(finalWindow);
+                    windowSemaph.changePermits(finalWindow);
 
                     System.out.println("WINDOW: " + finalWindow);
 

@@ -13,11 +13,11 @@ public final class ResizeableSemaphore extends Semaphore {
         super(0);
     }
 
-    @Override
-    protected void reducePermits(int reduction) {
+    protected void changePermits(int change) {
+
         int permits = super.availablePermits();
         super.reducePermits(permits);
 
-        super.release(reduction);
+        super.release(change);
     }
 }
