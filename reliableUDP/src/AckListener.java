@@ -96,9 +96,13 @@ public class AckListener implements Runnable {
                     if (a.getTimestamp().getTime() > 0) {
 
                         rtt = AgentUDP.calculateRTT(System.currentTimeMillis(), a.getTimestamp());
-                        Long calculatedRtt = (recentRtt.get() * (long) 0.25 + lastRtt.get() * (long) 0.35 + rtt * (long) 0.40)/3;
+
+                        Long estRtt = lastRtt.get() * (long) 0.875 + (long) 0.125 * rtt;
+                        Long devRtt = (long) 0.75 * recentRtt.get() + (long) 0.25 * Math.abs(rtt - estRtt);
+                        Long timeout = estRtt + 4 * devRtt;
+
                         recentRtt = lastRtt;
-                        lastRtt.set(calculatedRtt);
+                        lastRtt.set(timeout);
                     }
 
                     System.out.println("Ack received: " + ackReceived + " -> WINDOW = " + a.getWindow() + " -> RTT " + rtt);
