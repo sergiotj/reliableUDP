@@ -19,9 +19,12 @@ import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class AgentUDP {
 
@@ -151,7 +154,10 @@ public class AgentUDP {
 
         Map<Integer, Packet> buffer = Collections.synchronizedMap(new HashMap<>(this.window));
 
-        PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten, this.window);
+        ReentrantLock rl = new ReentrantLock() ;
+        Condition rCond = rl.newCondition();
+
+        PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten, this.window, rl, rCond);
         Thread t1 = new Thread(pListener);
         t1.start();
 
@@ -169,30 +175,35 @@ public class AgentUDP {
         // ciclo de escrita
         while(true) {
 
-            synchronized (buffer) {
+            Long maxWait = lastRtt.get();
 
-                Long maxWait = lastRtt.get();
-                while (!buffer.containsKey(iWritten.get())) {
+            while (!buffer.containsKey(iWritten.get())) {
 
-                    buffer.wait(lastRtt.get());
+                rl.lock();
 
-                    if (buffer.containsKey(iWritten.get())) break;
+                rCond.await(lastRtt.get(), TimeUnit.MILLISECONDS);
 
-                    // pedir reenvio
-                    System.out.println("PEDINDO REENVIO do " + iWritten.get());
-
-                    int size = this.window - buffer.size();
-
-                    Ack ack = new Ack(TypeAck.DATAFLOW, iWritten.get(), -1, size, new Timestamp(-1));
-                    byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
-                    DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
-                    socket.send(sendPacket);
-
-                    Thread.sleep(maxWait);
-
-                    maxWait = (long) (maxWait / 0.6);
-
+                if (buffer.containsKey(iWritten.get())) {
+                    rl.unlock();
+                    break;
                 }
+
+                // pedir reenvio
+                System.out.println("Pedindo reenvio do pacote: " + iWritten.get());
+
+                int size = this.window - buffer.size();
+
+                Ack ack = new Ack(TypeAck.DATAFLOW, iWritten.get(), -1, size, new Timestamp(-1));
+                byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
+                DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
+                socket.send(sendPacket);
+
+                rCond.await(lastRtt.get() * 2, TimeUnit.MILLISECONDS);
+
+                // maxWait = (long) (maxWait / 0.6);
+
+                rl.unlock();
+
             }
 
              // se tem o ficheiro
@@ -233,7 +244,6 @@ public class AgentUDP {
                     return;
                 }
             }
-
         }
     }
 
@@ -302,7 +312,7 @@ public class AgentUDP {
 
                 for (; index < chunks.size();) {
 
-                    if (!priority.isEmpty()) break;
+                    if (!priority.isEmpty() || (windowSemaph.availablePermits() <= window * 0.2 && index > window)) break;
 
                     Packet p = chunks.get(index);
 
@@ -313,7 +323,7 @@ public class AgentUDP {
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
 
-                    Thread.sleep(lastRtt.get());
+                    Thread.sleep(lastRtt.get() * 2);
 
                     socket.send(sendPacket);
 

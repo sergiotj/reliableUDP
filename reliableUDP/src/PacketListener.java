@@ -10,6 +10,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class PacketListener implements Runnable {
 
@@ -26,7 +28,10 @@ public class PacketListener implements Runnable {
 
     private int maxSize;
 
-    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> buffer, AtomicInteger iWritten, Integer maxSize){
+    private ReentrantLock rl;
+    private Condition rCond;
+
+    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> buffer, AtomicInteger iWritten, Integer maxSize, ReentrantLock rl, Condition rCond){
 
         this.socket = socket;
         this.address = address;
@@ -35,13 +40,15 @@ public class PacketListener implements Runnable {
         this.buffer = buffer;
         this.iWritten = iWritten;
         this.maxSize = maxSize;
+        this.rl = rl;
+        this.rCond = rCond;
     }
 
     @Override
     public void run() {
 
         try {
-            socket.setSoTimeout(10000);
+            socket.setSoTimeout(12000);
         } catch (SocketException exc) {
 
             System.out.println("SOCKET TIMED-OUT");
@@ -87,35 +94,34 @@ public class PacketListener implements Runnable {
 
                     else {
 
-                        buffer.put(p.getSeqNumber(), p);
-
-                        synchronized(buffer) {
-
-                            buffer.notifyAll();
-                        }
-
-                        // Send acknowledgement
-
                         int size = maxSize - buffer.size();
 
+                        // Send acknowledgement
                         Ack ack = null;
 
-                        if (size < 0) {
+                        System.out.println("Tamanho do Buff: " + size + " | WANT TO WRITE " + iWritten.get());
 
-                            ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), -1, size, p.getTimestamp());
-                        } else {
+                        if (size > 0 || (size <= 0 && p.getSeqNumber() == iWritten.get())) {
+
                             ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1, size, p.getTimestamp());
+
+                            buffer.put(p.getSeqNumber(), p);
+
+                            byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
+                            DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
+                            socket.send(sendPacket);
+
+                            System.out.println("Enviando o ACK = " + p.getSeqNumber() + " | window = " + ack.getWindow());
+
+                            rl.lock();
+                            if (iWritten.get() == p.getSeqNumber()) rCond.signal();
+                            rl.unlock();
                         }
 
-                        byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
-                        DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
-                        socket.send(sendPacket);
+                        else System.out.println("Pacote " + p.getSeqNumber() + " descartado por falta de espaço!");
 
-                        System.out.println("Mandei o ACK = " + p.getSeqNumber() + " com window = " + ack.getWindow());
-
+                        }
                     }
-
-                }
 
                 else {
 

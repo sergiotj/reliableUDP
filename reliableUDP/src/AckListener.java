@@ -24,6 +24,8 @@ public class AckListener implements Runnable {
     private AtomicLong recentRtt;
     private AtomicLong lastRtt;
 
+    private int consecutiveSuccess;
+
     public AckListener(DatagramSocket socket, CopyOnWriteArraySet<Integer> success, CopyOnWriteArrayList<Packet> chunks, CopyOnWriteArrayList<Packet> priority, ResizeableSemaphore windowSemaph, AtomicBoolean stop, AtomicLong recentRtt, AtomicLong lastRtt){
 
         this.socket = socket;
@@ -35,6 +37,7 @@ public class AckListener implements Runnable {
         this.stop = stop;
         this.recentRtt = recentRtt;
         this.lastRtt = lastRtt;
+        this.consecutiveSuccess = 0;
     }
 
     // SERVER
@@ -84,6 +87,8 @@ public class AckListener implements Runnable {
 
                 if (a.getStatus() == 1 && a.getType() == TypeAck.DATAFLOW){
 
+                    consecutiveSuccess++;
+
                     int ackReceived = a.getSeqNumber();
 
                     Long rtt = 0L;
@@ -100,7 +105,7 @@ public class AckListener implements Runnable {
 
                     success.add(ackReceived);
 
-                    int congestWindow = (int) Math.pow(2, windowSemaph.availablePermits() + 1);
+                    int congestWindow = (int) Math.pow(2, consecutiveSuccess);
                     int flowWindow = a.getWindow();
                     if (flowWindow < 0) flowWindow = 0;
                     int finalWindow = Math.min(congestWindow, flowWindow);
@@ -120,7 +125,7 @@ public class AckListener implements Runnable {
 
                         System.out.println("Pedido de reenvio = " + ackReceived);
 
-                        int congestWindow = windowSemaph.availablePermits() / 2;
+                        int congestWindow = 1;
                         int flowWindow = a.getWindow();
                         if (flowWindow < 0) flowWindow = 0;
 
@@ -128,10 +133,12 @@ public class AckListener implements Runnable {
 
                         windowSemaph.changePermits(finalWindow);
 
+                        /*
                         // reenvio... logo ele precisa que lhe mande um pacote
                         if (windowSemaph.availablePermits() == 0) {
-                            windowSemaph.release();
+                            windowSemaph.changePermits(1);
                         }
+                        */
 
                         priority.add(chunks.get(ackReceived));
                     }
@@ -148,15 +155,13 @@ public class AckListener implements Runnable {
 
             } catch (KryoException | IllegalArgumentException ioex) {
 
-                System.out.println("FECHOU");
-                System.out.println("ACABOU A ESPERA POR ACKS");
-
-                stop.getAndSet(true);
-                return;
+                System.out.println("Warning...");
 
             } catch (IOException ioex) {
 
                 System.out.println("exceção");
+                stop.getAndSet(true);
+                return;
             }
 
         }
