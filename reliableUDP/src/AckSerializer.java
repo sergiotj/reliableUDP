@@ -27,13 +27,27 @@ public class AckSerializer extends Serializer<Ack> {
             output.writeString(a.getTimestamp().toString());
         }
 
-        if (op == TypeAck.CONTROL || op == TypeAck.CONNECT || op == TypeAck.CLOSE) {
+        if (op == TypeAck.CONTROL || op == TypeAck.CLOSE) {
 
             String type = this.typeToString(a.getType());
 
             output.writeString(type);
             output.writeInt(a.getStatus());
             output.writeString(a.getTimestamp().toString());
+        }
+
+        if (op == TypeAck.CONNECT) {
+
+            String type = this.typeToString(a.getType());
+
+            output.writeString(type);
+            output.writeInt(a.getStatus());
+
+            output.writeString(a.getUsername());
+            output.writeString(a.getPassword());
+
+            output.writeString(a.getTimestamp().toString());
+
         }
 
     }
@@ -49,11 +63,19 @@ public class AckSerializer extends Serializer<Ack> {
             a = new Ack(t, input.readInt(), input.readInt(), input.readInt(), Timestamp.valueOf(input.readString()));
         }
 
-        if (op == TypeAck.CONTROL || op == TypeAck.CONNECT || op == TypeAck.CLOSE) {
+        if (op == TypeAck.CONTROL || op == TypeAck.CLOSE) {
 
             TypeAck t = this.stringToType(input.readString());
 
             a = new Ack(t, input.readInt(), Timestamp.valueOf(input.readString()));
+
+        }
+
+        if (op == TypeAck.CONNECT) {
+
+            TypeAck t = this.stringToType(input.readString());
+
+            a = new Ack(t, input.readInt(), input.readString(), input.readString(), Timestamp.valueOf(input.readString()));
 
         }
 

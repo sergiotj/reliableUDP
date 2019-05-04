@@ -13,6 +13,9 @@ public class Ack implements Serializable {
 
     private Timestamp rtt;
 
+    private String username;
+    private String password;
+
     public Ack(TypeAck type, int seqNumber, int status, int window, Timestamp rtt) {
 
         this.type = type;
@@ -28,6 +31,16 @@ public class Ack implements Serializable {
         this.type = type;
         this.status = status;
         this.rtt = rtt;
+
+    }
+
+    public Ack(TypeAck type, int status, String username, String password, Timestamp rtt) {
+
+        this.type = type;
+        this.status = status;
+        this.rtt = rtt;
+        this.username = username;
+        this.password = password;
 
     }
 
@@ -54,6 +67,16 @@ public class Ack implements Serializable {
     public Timestamp getTimestamp() {
 
         return this.rtt;
+    }
+
+    public String getUsername() {
+
+        return this.username;
+    }
+
+    public String getPassword() {
+
+        return this.password;
     }
 
     public static Ack bytesToAck(Kryo kryo, byte[] bytes, TypeAck type) {

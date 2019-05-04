@@ -67,7 +67,7 @@ public class AckListener implements Runnable {
 
             try {
 
-                Ack a = null;
+                Ack a;
 
                 // set the socket timeout for the packet acknowledgment
                 socket.receive(ackpack);

@@ -89,8 +89,6 @@ public class AgentUDP {
 
         sendReliableInfo(a, TypeAck.CLOSE);
 
-        Thread.sleep(1000);
-
         System.out.println("PROCESSO CONCLUIDO");
     }
 
@@ -134,7 +132,7 @@ public class AgentUDP {
         System.out.println("PROCESSO CONCLUIDO");
     }
 
-    public void receptionDataFlow(int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    private void receptionDataFlow(int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
         String directoryName = "sent";
         File directory = new File(directoryName);
@@ -174,8 +172,6 @@ public class AgentUDP {
 
         // ciclo de escrita
         while(true) {
-
-            Long maxWait = lastRtt.get();
 
             while (!buffer.containsKey(iWritten.get())) {
 
@@ -247,7 +243,7 @@ public class AgentUDP {
         }
     }
 
-    public void dispatchDataFlow(String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+    private void dispatchDataFlow(String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         File file = new File(fileName);
 
@@ -353,10 +349,11 @@ public class AgentUDP {
         return Arrays.copyOf(hash, 8);
     }
 
-    public static Ack sendHandshake(Client client, DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, TypeAck type) throws IOException {
+    public static Ack sendHandshake(Client client, DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, String username, String password, TypeAck type) throws IOException {
 
-        Ack ack = new Ack(type, 1, new Timestamp(System.currentTimeMillis()));
+        Ack ack = new Ack(type, 1, username, password, new Timestamp(System.currentTimeMillis()));
         byte[] ackB = Ack.ackToBytes(kryo, ack, type);
+
         DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
         socket.send(sendPacket);
         System.out.println("Mandei um Handshake");
@@ -504,7 +501,7 @@ public class AgentUDP {
             } catch (SocketTimeoutException timeout) {
 
                 retry++;
-                System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
+                System.out.println("Timeout! Retrying " + retry);
                 socket.send(sendPacket);
                 System.out.println("Enviei " + typeP);
 
@@ -526,6 +523,7 @@ public class AgentUDP {
 
         int disconnect = 0;
         boolean packet = false;
+
         if (Objects.equals(typeP, TypePk.FNOP) || Objects.equals(typeP, TypePk.HASHPARTS)) {
 
             packet = true;
@@ -576,7 +574,7 @@ public class AgentUDP {
                 }
 
                 retry++;
-                System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
+                System.out.println("Timeout! Retrying " + retry);
 
 
             } catch (IllegalArgumentException | KryoException ex) {
@@ -623,7 +621,7 @@ public class AgentUDP {
             } catch (SocketTimeoutException timeout) {
 
                 retry++;
-                System.out.println("TIMEOUT... Retry " + retry);
+                System.out.println("Timeout! Retrying " + retry);
                 socket.send(sendPacket1);
                 System.out.println("Enviei CONTROL");
 

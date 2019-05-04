@@ -22,9 +22,9 @@ public class Client {
         this.sizeOfPacket = sizeOfPacket;
     }
 
-    public void startClient(String args[]) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
+    public void startClient(String[] args) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {
 
-        if (!args[0].equals("connect") && args.length != 2) {
+        if (!args[0].equals("connect") || args.length != 5) {
 
             System.out.println("Operação inválida");
             return;
@@ -36,7 +36,10 @@ public class Client {
         InetAddress IPAddress = InetAddress.getByName(args[1]);
         int port = Integer.parseInt(args[2]);
 
-        Ack a = AgentUDP.sendHandshake(this, clientSocket, IPAddress, port, kryo, TypeAck.CONNECT);
+        String username = args[3];
+        String password = args[4];
+
+        Ack a = AgentUDP.sendHandshake(this, clientSocket, IPAddress, port, kryo, username, password, TypeAck.CONNECT);
 
         if (a == null) {
 
@@ -56,8 +59,8 @@ public class Client {
 
         BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
-        String firstWord = null;
-        String sentence = null;
+        String firstWord;
+        String sentence;
 
         System.out.println("Escreva: put file, get file ou quit para se desconectar");
 
@@ -100,7 +103,7 @@ public class Client {
         this.svPort = port;
     }
 
-    public static void main(String args[]) {
+    public static void main(String[] args) {
 
         Client cli = new Client(10, 5000);
 

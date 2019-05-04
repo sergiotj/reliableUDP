@@ -10,6 +10,7 @@ public final class ResizeableSemaphore extends Semaphore {
      * Create a new semaphore with 0 permits.
      */
     ResizeableSemaphore() {
+
         super(0);
     }
 
