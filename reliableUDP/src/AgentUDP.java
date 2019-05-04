@@ -55,7 +55,7 @@ public class AgentUDP {
         this.recentRtt = new AtomicLong(2000);
     }
 
-    public void receive(TypeEnt ent, String filename) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
+    public int receive(TypeEnt ent, String filename) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {
 
         // se for server
         // recebe pacote com o nome do ficheiro // FEITO NO RUN LOGO AQUI NÃO SE FAZ
@@ -65,7 +65,9 @@ public class AgentUDP {
             // envia get file e o servidor vai verificar se tem o ficheiro
             Packet p = new Packet(filename, "get", key);
 
-            this.sendReliableInfo(p, TypePk.FNOP);
+            Ack a = this.sendReliableInfo(p, TypePk.FNOP);
+
+            if (a == null) return 1;
 
         }
 
@@ -75,7 +77,7 @@ public class AgentUDP {
         if (p == null) {
 
             System.out.println("Falha na conexão. Terminado.");
-            return;
+            return 1;
         }
 
         int nrParts = p.getParts();
@@ -90,16 +92,18 @@ public class AgentUDP {
         sendReliableInfo(a, TypeAck.CLOSE);
 
         System.out.println("PROCESSO CONCLUIDO");
+
+        return 0;
     }
 
-    public void send(TypeEnt ent, String filename) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InterruptedException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+    public int send(TypeEnt ent, String filename) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InterruptedException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         // verifica se tem o ficheiro
         File f = new File(filename);
         if(!f.isFile()) {
 
             System.out.println("FICHEIRO NÃO EXISTE!");
-            return;
+            return 1;
         }
 
         if (ent == TypeEnt.CLIENT) {
@@ -107,7 +111,9 @@ public class AgentUDP {
             // Envia pacote a dizer que quer mandar ficheiro
             Packet p = new Packet(filename, "put", key);
 
-            this.sendReliableInfo(p, TypePk.FNOP);
+            Ack a = this.sendReliableInfo(p, TypePk.FNOP);
+
+            if (a == null) return 1;
 
         }
 
@@ -118,6 +124,9 @@ public class AgentUDP {
         Packet p = new Packet(hash, nrParts, new Timestamp(System.currentTimeMillis()));
 
         Ack a = this.sendReliableInfo(p, TypePk.HASHPARTS);
+
+        if (a == null) return 1;
+
         Long time = AgentUDP.calculateRTT(System.currentTimeMillis(), a.getTimestamp());
 
         lastRtt.set(time * 2);
@@ -130,6 +139,8 @@ public class AgentUDP {
         receiveReliableInfo(TypeAck.CLOSE);
 
         System.out.println("PROCESSO CONCLUIDO");
+
+        return 0;
     }
 
     private void receptionDataFlow(int nrParts, String filename, byte[] hash) throws IOException, InterruptedException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException {

@@ -83,13 +83,19 @@ public class Client {
 
             if (firstWord.equals("get")) {
 
-                agent.receive(TypeEnt.CLIENT, file);
+                int stat = agent.receive(TypeEnt.CLIENT, file);
+
+                // força o fecho se algo correu mal
+                if (stat == 1) break;
 
             }
 
             if (firstWord.equals("put")) {
 
-                agent.send(TypeEnt.CLIENT, file);
+                int stat = agent.send(TypeEnt.CLIENT, file);
+
+                // força o fecho se algo correu mal
+                if (stat == 1) break;
 
             }
         }
