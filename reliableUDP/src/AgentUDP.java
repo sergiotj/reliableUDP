@@ -381,8 +381,8 @@ public class AgentUDP {
 
                 retry++;
                 System.out.println("First connect TIMED-OUT... Sending again!! retry " + retry);
-                // socket.send(sendPacket);
-                // System.out.println("Mandei um Handshake");
+                socket.send(sendPacket);
+                System.out.println("Mandei um Handshake");
 
             }
         }
