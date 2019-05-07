@@ -44,6 +44,9 @@ public class AckListener implements Runnable {
     @Override
     public void run() {
 
+        // flag que nos diz se já houve pedidos de reenvio ou não
+        boolean reSent = false;
+
         try {
             socket.setSoTimeout(15000);
         } catch (SocketException exc) {
@@ -87,8 +90,6 @@ public class AckListener implements Runnable {
 
                 if (a.getStatus() == 1 && a.getType() == TypeAck.DATAFLOW){
 
-                    consecutiveSuccess++;
-
                     int ackReceived = a.getSeqNumber();
 
                     Long rtt = 0L;
@@ -109,18 +110,29 @@ public class AckListener implements Runnable {
 
                     success.add(ackReceived);
 
-                    int congestWindow = (int) Math.pow(2, consecutiveSuccess);
+                    int congestWindow;
+
+                    // janela de congestão fica linear depois de pedido de reenvio
+                    if (!reSent) {
+                        congestWindow = (int) Math.pow(2, consecutiveSuccess);
+                    }
+                    else congestWindow = consecutiveSuccess + 1;
+
                     int flowWindow = a.getWindow();
                     if (flowWindow < 0) flowWindow = 0;
                     int finalWindow = Math.min(congestWindow, flowWindow);
 
                     windowSemaph.changePermits(finalWindow);
 
+                    consecutiveSuccess++;
+
                     System.out.println("WINDOW: " + finalWindow);
 
                 }
 
                 if (a.getStatus() == -1 && a.getType() == TypeAck.DATAFLOW){
+
+                    reSent = true;
 
                     int ackReceived = a.getSeqNumber();
 

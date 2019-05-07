@@ -97,11 +97,11 @@ public class PacketListener implements Runnable {
                         int size = maxSize - buffer.size();
 
                         // Send acknowledgement
-                        Ack ack = null;
+                        Ack ack;
 
                         System.out.println("Tamanho do Buff: " + size + " | WANT TO WRITE " + iWritten.get());
 
-                        if (size > 0 || (size <= 0 && p.getSeqNumber() == iWritten.get())) {
+                        if (size > 0 || p.getSeqNumber() == iWritten.get()) {
 
                             ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1, size, p.getTimestamp());
 

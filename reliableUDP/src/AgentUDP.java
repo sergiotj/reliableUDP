@@ -182,7 +182,7 @@ public class AgentUDP {
         t2.start();
 
         // ciclo de escrita
-        while(true) {
+        while (true) {
 
             while (!buffer.containsKey(iWritten.get())) {
 
@@ -204,8 +204,6 @@ public class AgentUDP {
                 byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
                 DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                 socket.send(sendPacket);
-
-                rCond.await(lastRtt.get() * 2, TimeUnit.MILLISECONDS);
 
                 // maxWait = (long) (maxWait / 0.6);
 
@@ -329,8 +327,6 @@ public class AgentUDP {
 
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-
-                    Thread.sleep(lastRtt.get() * 2);
 
                     socket.send(sendPacket);
 

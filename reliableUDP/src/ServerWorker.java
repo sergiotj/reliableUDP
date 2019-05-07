@@ -34,7 +34,7 @@ public class ServerWorker implements Runnable {
 
         try {
 
-            this.socket = new DatagramSocket();
+            this.socket = new DatagramSocket(4447);
 
             System.out.println("Server worker started at " + socket.getLocalPort());
 
