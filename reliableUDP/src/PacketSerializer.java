@@ -20,7 +20,7 @@ public class PacketSerializer extends Serializer<Packet> {
 
             output.writeString(p.getFilename());
             output.writeString(p.getOperation());
-
+            output.writeInt(p.getWindow());
             output.writeString(p.getKey());
         }
 
@@ -56,10 +56,10 @@ public class PacketSerializer extends Serializer<Packet> {
 
             String filename = input.readString();
             String operation = input.readString();
-
+            int window = input.readInt();
             String key = input.readString();
 
-            p = new Packet(filename, operation, key);
+            p = new Packet(filename, operation, window, key);
         }
 
         if (op == TypePk.DATA) {
