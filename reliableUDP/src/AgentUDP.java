@@ -536,7 +536,7 @@ public class AgentUDP {
             packet = true;
 
             if (typeP == TypePk.FNOP) {
-                socket.setSoTimeout(15000);
+                socket.setSoTimeout(30000);
                 disconnect = 1;
             }
 
