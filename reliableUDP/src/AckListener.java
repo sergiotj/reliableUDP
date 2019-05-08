@@ -13,26 +13,20 @@ public class AckListener implements Runnable {
 
     private DatagramSocket socket;
     private Kryo kryo;
-
     private CopyOnWriteArrayList<Packet> chunks;
-
     private CopyOnWriteArraySet<Integer> success;
-
     private ResizeableSemaphore windowSemaph;
-
     private AtomicBoolean stop;
     private AtomicLong recentRtt;
     private AtomicLong lastRtt;
-
-    private int consecutiveSuccess;
-
     private AtomicInteger recIndex;
-
     private InetAddress address;
     private int port;
 
+    private int threshold;
+
     public AckListener(DatagramSocket socket, CopyOnWriteArraySet<Integer> success, CopyOnWriteArrayList<Packet> chunks,
-                       ResizeableSemaphore windowSemaph, AtomicBoolean stop, AtomicLong recentRtt, AtomicLong lastRtt, AtomicInteger recIndex, InetAddress address, int port){
+                       ResizeableSemaphore windowSemaph, AtomicBoolean stop, AtomicLong recentRtt, AtomicLong lastRtt, AtomicInteger recIndex, InetAddress address, int port, int threshold){
 
         this.socket = socket;
         this.chunks = chunks;
@@ -42,10 +36,10 @@ public class AckListener implements Runnable {
         this.stop = stop;
         this.recentRtt = recentRtt;
         this.lastRtt = lastRtt;
-        this.consecutiveSuccess = 0;
         this.recIndex = recIndex;
         this.address = address;
         this.port = port;
+        this.threshold = threshold;
     }
 
     // SERVER
@@ -53,6 +47,7 @@ public class AckListener implements Runnable {
     public void run() {
 
         int congestWindow = 1;
+        int consecutiveSuccess = 0;
 
         // flag que nos diz se já houve pedidos de reenvio ou não
         boolean reSent = false;
@@ -116,7 +111,7 @@ public class AckListener implements Runnable {
                         lastRtt.set(timeout);
                     }
 
-                    System.out.println("Ack received: " + ackReceived + " -> WINDOW = " + a.getWindow() + " -> RTT " + rtt);
+                    System.out.println("Ack received: " + ackReceived + " -> WINDOW = " + a.getWindow() + " -> RTT " + rtt + "ms");
 
                     success.add(ackReceived);
 
@@ -124,7 +119,10 @@ public class AckListener implements Runnable {
 
                     // janela de congestão fica linear depois de pedido de reenvio
                     if (!reSent) {
-                        congestWindow = (int) Math.pow(2, consecutiveSuccess);
+
+                        if (congestWindow > threshold) congestWindow = consecutiveSuccess + 1;
+                        else congestWindow = (int) Math.pow(2, consecutiveSuccess);
+
                     } else congestWindow = consecutiveSuccess + 1;
 
                     int flowWindow = a.getWindow();
@@ -136,13 +134,14 @@ public class AckListener implements Runnable {
 
                     consecutiveSuccess++;
 
-                    System.out.println("WINDOW mudou para: " + finalWindow);
+                    System.out.println("WINDOW changed to: " + finalWindow + " because congWindow = " + congestWindow + " and recWindow = " + flowWindow);
 
                 }
 
                 if (a.getStatus() == -1 && a.getType() == TypeAck.DATAFLOW) {
 
                     reSent = true;
+                    consecutiveSuccess = 0;
 
                     int ackReceived = a.getSeqNumber();
                     this.recIndex.set(a.getRecIndex());
@@ -171,6 +170,7 @@ public class AckListener implements Runnable {
                             System.out.println("WINDOW MESMO: " + windowSemaph.availablePermits());
 
                             p.addTimestamp(new Timestamp(System.currentTimeMillis()));
+                            p.setRttNow((int) lastRtt.get());
 
                             byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                             DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
@@ -189,6 +189,7 @@ public class AckListener implements Runnable {
             } catch (SocketTimeoutException e) {
 
                 System.out.println("Socket timed out waiting for ACKs");
+                stop.getAndSet(true);
                 return;
 
             } catch (KryoException | IllegalArgumentException ioex) {

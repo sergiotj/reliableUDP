@@ -10,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -32,7 +33,10 @@ public class PacketListener implements Runnable {
     private ReentrantLock rl;
     private Condition rCond;
 
-    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> bufferToWait, Map<Integer, Packet> bufferToWrite, AtomicInteger iWritten, Integer maxSize, ReentrantLock rl, Condition rCond) {
+    private AtomicLong rtt;
+
+    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> bufferToWait, Map<Integer, Packet> bufferToWrite, AtomicInteger iWritten
+            , Integer maxSize, ReentrantLock rl, Condition rCond, AtomicLong rtt) {
 
         this.socket = socket;
         this.address = address;
@@ -44,6 +48,7 @@ public class PacketListener implements Runnable {
         this.maxSize = maxSize;
         this.rl = rl;
         this.rCond = rCond;
+        this.rtt = rtt;
     }
 
     @Override
@@ -66,6 +71,9 @@ public class PacketListener implements Runnable {
 
                 // seqNumber from packet
                 int seqNumber = p.getSeqNumber();
+
+                // update rtt
+                this.rtt.set(p.getRttNow());
 
                 // comparar com o que se quer agora
                 if (seqNumber >= iWritten.get()) {
@@ -93,8 +101,6 @@ public class PacketListener implements Runnable {
                         // Send acknowledgement
                         Ack ack;
 
-                        System.out.println("Tamanho do Buff: " + size + " | WANT TO WRITE " + iWritten.get());
-
                         if (size > 0 || p.getSeqNumber() == iWritten.get()) {
 
                             ack = new Ack(TypeAck.DATAFLOW, p.getSeqNumber(), 1, size, iWritten.get(), p.getTimestamp());
@@ -108,7 +114,7 @@ public class PacketListener implements Runnable {
                             DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                             socket.send(sendPacket);
 
-                            System.out.println("Enviando o ACK = " + p.getSeqNumber() + " | window = " + ack.getWindow());
+                            System.out.println("Enviando o ACK = " + p.getSeqNumber() + " com window = " + ack.getWindow());
 
                             rl.lock();
                             if (iWritten.get() == p.getSeqNumber()) {

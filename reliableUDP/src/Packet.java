@@ -19,6 +19,7 @@ import java.util.Arrays;
 
 public class Packet implements Serializable {
 
+    private TypePk type;
     private byte[] data;
     private int seqNumber;
     private byte[] hash;
@@ -28,30 +29,34 @@ public class Packet implements Serializable {
     private String key;
     private Timestamp rtt;
     private int window;
+    private int rttNow;
 
     public Packet(byte[] fullPacket) {
 
         this.data = fullPacket;
     }
 
-    public Packet(String filename, String operation, int window, String key) {
+    public Packet(TypePk type, String filename, String operation, int window, String key) {
 
+        this.type = type;
         this.filename = filename;
         this.operation = operation;
         this.window = window;
         this.key = key;
     }
 
-    public Packet(byte[] data, int seqNumber, byte[] hash, Timestamp rtt) {
+    public Packet(byte[] data, int seqNumber, int rttNow, byte[] hash, Timestamp rtt) {
 
         this.data = data;
         this.seqNumber = seqNumber;
         this.hash = hash;
         this.rtt = rtt;
+        this.rttNow = rttNow;
     }
 
-    public Packet(byte[] hash, int nrParts, Timestamp rtt) {
+    public Packet(TypePk type, byte[] hash, int nrParts, Timestamp rtt) {
 
+        this.type = type;
         this.hash = hash;
         this.nrParts = nrParts;
         this.rtt = rtt;
@@ -97,14 +102,29 @@ public class Packet implements Serializable {
         return this.rtt;
     }
 
+    public TypePk getType() {
+
+        return this.type;
+    }
+
     public int getWindow() {
 
         return this.window;
     }
 
+    public int getRttNow() {
+
+        return this.rttNow;
+    }
+
     public void setSeqNumber(int seqNumber) {
 
         this.seqNumber = seqNumber;
+    }
+
+    public void setRttNow(int rtt) {
+
+        this.rttNow = rtt;
     }
 
     public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket, String key) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {

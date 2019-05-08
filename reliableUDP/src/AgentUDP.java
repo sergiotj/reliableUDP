@@ -63,7 +63,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // envia get file e o servidor vai verificar se tem o ficheiro
-            Packet p = new Packet(filename, "get", window, key);
+            Packet p = new Packet(TypePk.FNOP, filename, "get", window, key);
 
             Ack a = this.sendReliableInfo(p, TypePk.FNOP);
 
@@ -100,6 +100,14 @@ public class AgentUDP {
 
         // verifica se tem o ficheiro
         File f = new File(filename);
+
+        // security
+        if (filename.equals("users.txt")) {
+
+            System.out.println("Ficheiro não existe ;)");
+            return 1;
+        }
+
         if(!f.isFile()) {
 
             System.out.println("FICHEIRO NÃO EXISTE!");
@@ -109,7 +117,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // Envia pacote a dizer que quer mandar ficheiro
-            Packet p = new Packet(filename, "put", window, key);
+            Packet p = new Packet(TypePk.FNOP, filename, "put", window, key);
 
             Ack a = this.sendReliableInfo(p, TypePk.FNOP);
 
@@ -121,7 +129,7 @@ public class AgentUDP {
         byte[] hash = this.getHashFile(filename);
         int nrParts = Packet.fileToNrParts(filename, sizeOfPacket);
 
-        Packet p = new Packet(hash, nrParts, new Timestamp(System.currentTimeMillis()));
+        Packet p = new Packet(TypePk.HASHPARTS, hash, nrParts, new Timestamp(System.currentTimeMillis()));
 
         Ack a = this.sendReliableInfo(p, TypePk.HASHPARTS);
 
@@ -167,7 +175,7 @@ public class AgentUDP {
         ReentrantLock rl = new ReentrantLock() ;
         Condition rCond = rl.newCondition();
 
-        PacketListener pListener = new PacketListener(socket, address, port, bufferToWait, bufferToWrite, iWritten, this.window, rl, rCond);
+        PacketListener pListener = new PacketListener(socket, address, port, bufferToWait, bufferToWrite, iWritten, this.window, rl, rCond, lastRtt);
         Thread t1 = new Thread(pListener);
         t1.start();
 
@@ -189,7 +197,11 @@ public class AgentUDP {
 
                 rl.lock();
 
-                rCond.await(lastRtt.get(), TimeUnit.MILLISECONDS);
+                int wait;
+                if (lastRtt.get() < 100) wait = 100;
+                else wait = (int) lastRtt.get();
+
+                rCond.await(wait, TimeUnit.MILLISECONDS);
 
                 if (bufferToWrite.containsKey(iWritten.get())) {
                     rl.unlock();
@@ -292,7 +304,9 @@ public class AgentUDP {
         ResizeableSemaphore windowSemaph = new ResizeableSemaphore();
         windowSemaph.release(1);
 
-        AckListener aListener = new AckListener(socket, success, chunks, windowSemaph, stop, recentRtt, lastRtt, recIndex, address, port);
+        int threshold = windowRec;
+
+        AckListener aListener = new AckListener(socket, success, chunks, windowSemaph, stop, recentRtt, lastRtt, recIndex, address, port, threshold);
         Thread t1 = new Thread(aListener);
         t1.start();
 
@@ -333,6 +347,7 @@ public class AgentUDP {
                     if (success.contains(p.getSeqNumber())) continue;
 
                     p.addTimestamp(new Timestamp(System.currentTimeMillis()));
+                    p.setRttNow((int) lastRtt.get());
 
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
@@ -564,13 +579,17 @@ public class AgentUDP {
 
                     Packet p = Packet.bytesToPacket(kryo, receivePacket.getData(), (TypePk) typeP);
 
-                    System.out.println("Recebi pacote: ");
+                    if (p.getType() != typeP) throw new SocketTimeoutException();
+
+                    System.out.println("Recebi pacote: " + p.getType());
 
                 }
 
                 if (!packet) {
 
                     Ack a1 = Ack.bytesToAck(kryo, receivePacket.getData(), (TypeAck) typeP);
+
+                    if (a1.getType() != typeP) throw new SocketTimeoutException();
 
                     System.out.println("Recebi ACK: " + a1.getType());
 

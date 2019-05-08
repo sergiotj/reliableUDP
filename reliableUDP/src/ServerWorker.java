@@ -48,33 +48,36 @@ public class ServerWorker implements Runnable {
                 return;
             }
 
-            Packet p = (Packet) agent.receiveReliableInfo(TypePk.FNOP);
+            while (true) {
 
-            if (p == null) {
+                Packet p = (Packet) agent.receiveReliableInfo(TypePk.FNOP);
 
-                socket.close();
-                return;
-            }
+                if (p == null) {
 
-            String filename = p.getFilename();
+                    socket.close();
+                    return;
+                }
 
-            String operation = p.getOperation();
+                String filename = p.getFilename();
 
-            int window = p.getWindow();
+                String operation = p.getOperation();
 
-            System.out.println("Nome do ficheiro: " + filename);
-            System.out.println("Operação recebida: " + operation);
+                int window = p.getWindow();
 
-            // se é um put file
-            if (operation.equals("put")) {
+                System.out.println("Nome do ficheiro: " + filename);
+                System.out.println("Operação recebida: " + operation);
 
-                agent.receive(TypeEnt.SERVER, filename);
-            }
+                // se é um put file
+                if (operation.equals("put")) {
 
-            // se é um get file
-            if (operation.equals("get")) {
+                    agent.receive(TypeEnt.SERVER, filename);
+                }
 
-                agent.send(TypeEnt.SERVER, filename, window);
+                // se é um get file
+                if (operation.equals("get")) {
+
+                    agent.send(TypeEnt.SERVER, filename, window);
+                }
             }
 
         } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException | InvalidKeyException | InterruptedException exc) {
