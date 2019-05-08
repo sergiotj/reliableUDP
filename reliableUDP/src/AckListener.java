@@ -170,6 +170,7 @@ public class AckListener implements Runnable {
                             System.out.println("WINDOW MESMO: " + windowSemaph.availablePermits());
 
                             p.addTimestamp(new Timestamp(System.currentTimeMillis()));
+                            p.setRttNow((int) lastRtt.get());
 
                             byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                             DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);

@@ -33,6 +33,7 @@ public class PacketSerializer extends Serializer<Packet> {
             output.writeBytes(p.getData());
 
             output.writeInt(p.getSeqNumber());
+            output.writeInt(p.getRttNow());
 
             output.writeVarInt(p.getHash().length + 1, true);
             output.writeBytes(p.getHash());
@@ -76,11 +77,12 @@ public class PacketSerializer extends Serializer<Packet> {
             byte[] data = input.readBytes(length1 - 1);
 
             int seqNumber = input.readInt();
+            int rttNow = input.readInt();
 
             int length2 = input.readVarInt(true);
             byte[] hash = input.readBytes(length2 - 1);
 
-            p = new Packet(data, seqNumber, hash, Timestamp.valueOf(input.readString()));
+            p = new Packet(data, seqNumber, rttNow, hash, Timestamp.valueOf(input.readString()));
         }
 
         if (op == TypePk.HASHPARTS) {

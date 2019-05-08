@@ -175,7 +175,7 @@ public class AgentUDP {
         ReentrantLock rl = new ReentrantLock() ;
         Condition rCond = rl.newCondition();
 
-        PacketListener pListener = new PacketListener(socket, address, port, bufferToWait, bufferToWrite, iWritten, this.window, rl, rCond);
+        PacketListener pListener = new PacketListener(socket, address, port, bufferToWait, bufferToWrite, iWritten, this.window, rl, rCond, lastRtt);
         Thread t1 = new Thread(pListener);
         t1.start();
 
@@ -197,7 +197,11 @@ public class AgentUDP {
 
                 rl.lock();
 
-                rCond.await(lastRtt.get(), TimeUnit.MILLISECONDS);
+                int wait;
+                if (lastRtt.get() < 100) wait = 100;
+                else wait = (int) lastRtt.get();
+
+                rCond.await(wait, TimeUnit.MILLISECONDS);
 
                 if (bufferToWrite.containsKey(iWritten.get())) {
                     rl.unlock();
@@ -343,6 +347,7 @@ public class AgentUDP {
                     if (success.contains(p.getSeqNumber())) continue;
 
                     p.addTimestamp(new Timestamp(System.currentTimeMillis()));
+                    p.setRttNow((int) lastRtt.get());
 
                     byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
                     DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);

@@ -29,6 +29,7 @@ public class Packet implements Serializable {
     private String key;
     private Timestamp rtt;
     private int window;
+    private int rttNow;
 
     public Packet(byte[] fullPacket) {
 
@@ -44,12 +45,13 @@ public class Packet implements Serializable {
         this.key = key;
     }
 
-    public Packet(byte[] data, int seqNumber, byte[] hash, Timestamp rtt) {
+    public Packet(byte[] data, int seqNumber, int rttNow, byte[] hash, Timestamp rtt) {
 
         this.data = data;
         this.seqNumber = seqNumber;
         this.hash = hash;
         this.rtt = rtt;
+        this.rttNow = rttNow;
     }
 
     public Packet(TypePk type, byte[] hash, int nrParts, Timestamp rtt) {
@@ -110,9 +112,19 @@ public class Packet implements Serializable {
         return this.window;
     }
 
+    public int getRttNow() {
+
+        return this.rttNow;
+    }
+
     public void setSeqNumber(int seqNumber) {
 
         this.seqNumber = seqNumber;
+    }
+
+    public void setRttNow(int rtt) {
+
+        this.rttNow = rtt;
     }
 
     public static ArrayList<Packet> fileToChunks(File filename, int sizeOfPacket, String key) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException {

@@ -10,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -32,7 +33,10 @@ public class PacketListener implements Runnable {
     private ReentrantLock rl;
     private Condition rCond;
 
-    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> bufferToWait, Map<Integer, Packet> bufferToWrite, AtomicInteger iWritten, Integer maxSize, ReentrantLock rl, Condition rCond) {
+    private AtomicLong rtt;
+
+    public PacketListener(DatagramSocket socket, InetAddress address, int port, Map<Integer, Packet> bufferToWait, Map<Integer, Packet> bufferToWrite, AtomicInteger iWritten
+            , Integer maxSize, ReentrantLock rl, Condition rCond, AtomicLong rtt) {
 
         this.socket = socket;
         this.address = address;
@@ -44,6 +48,7 @@ public class PacketListener implements Runnable {
         this.maxSize = maxSize;
         this.rl = rl;
         this.rCond = rCond;
+        this.rtt = rtt;
     }
 
     @Override
@@ -66,6 +71,9 @@ public class PacketListener implements Runnable {
 
                 // seqNumber from packet
                 int seqNumber = p.getSeqNumber();
+
+                // update rtt
+                this.rtt.set(p.getRttNow());
 
                 // comparar com o que se quer agora
                 if (seqNumber >= iWritten.get()) {
