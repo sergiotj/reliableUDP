@@ -63,7 +63,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // envia get file e o servidor vai verificar se tem o ficheiro
-            Packet p = new Packet(filename, "get", window, key);
+            Packet p = new Packet(TypePk.FNOP, filename, "get", window, key);
 
             Ack a = this.sendReliableInfo(p, TypePk.FNOP);
 
@@ -109,7 +109,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // Envia pacote a dizer que quer mandar ficheiro
-            Packet p = new Packet(filename, "put", window, key);
+            Packet p = new Packet(TypePk.FNOP, filename, "put", window, key);
 
             Ack a = this.sendReliableInfo(p, TypePk.FNOP);
 
@@ -121,7 +121,7 @@ public class AgentUDP {
         byte[] hash = this.getHashFile(filename);
         int nrParts = Packet.fileToNrParts(filename, sizeOfPacket);
 
-        Packet p = new Packet(hash, nrParts, new Timestamp(System.currentTimeMillis()));
+        Packet p = new Packet(TypePk.HASHPARTS, hash, nrParts, new Timestamp(System.currentTimeMillis()));
 
         Ack a = this.sendReliableInfo(p, TypePk.HASHPARTS);
 
@@ -564,13 +564,17 @@ public class AgentUDP {
 
                     Packet p = Packet.bytesToPacket(kryo, receivePacket.getData(), (TypePk) typeP);
 
-                    System.out.println("Recebi pacote: ");
+                    if (p.getType() != typeP) throw new SocketTimeoutException();
+
+                    System.out.println("Recebi pacote: " + p.getType());
 
                 }
 
                 if (!packet) {
 
                     Ack a1 = Ack.bytesToAck(kryo, receivePacket.getData(), (TypeAck) typeP);
+
+                    if (a1.getType() != typeP) throw new SocketTimeoutException();
 
                     System.out.println("Recebi ACK: " + a1.getType());
 

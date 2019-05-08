@@ -189,6 +189,7 @@ public class AckListener implements Runnable {
             } catch (SocketTimeoutException e) {
 
                 System.out.println("Socket timed out waiting for ACKs");
+                stop.getAndSet(true);
                 return;
 
             } catch (KryoException | IllegalArgumentException ioex) {

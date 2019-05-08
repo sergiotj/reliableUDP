@@ -19,6 +19,7 @@ import java.util.Arrays;
 
 public class Packet implements Serializable {
 
+    private TypePk type;
     private byte[] data;
     private int seqNumber;
     private byte[] hash;
@@ -34,8 +35,9 @@ public class Packet implements Serializable {
         this.data = fullPacket;
     }
 
-    public Packet(String filename, String operation, int window, String key) {
+    public Packet(TypePk type, String filename, String operation, int window, String key) {
 
+        this.type = type;
         this.filename = filename;
         this.operation = operation;
         this.window = window;
@@ -44,14 +46,16 @@ public class Packet implements Serializable {
 
     public Packet(byte[] data, int seqNumber, byte[] hash, Timestamp rtt) {
 
+        this.type = type;
         this.data = data;
         this.seqNumber = seqNumber;
         this.hash = hash;
         this.rtt = rtt;
     }
 
-    public Packet(byte[] hash, int nrParts, Timestamp rtt) {
+    public Packet(TypePk type, byte[] hash, int nrParts, Timestamp rtt) {
 
+        this.type = type;
         this.hash = hash;
         this.nrParts = nrParts;
         this.rtt = rtt;
@@ -95,6 +99,11 @@ public class Packet implements Serializable {
     public Timestamp getTimestamp() {
 
         return this.rtt;
+    }
+
+    public TypePk getType() {
+
+        return this.type;
     }
 
     public int getWindow() {
