@@ -292,7 +292,9 @@ public class AgentUDP {
         ResizeableSemaphore windowSemaph = new ResizeableSemaphore();
         windowSemaph.release(1);
 
-        AckListener aListener = new AckListener(socket, success, chunks, windowSemaph, stop, recentRtt, lastRtt, recIndex, address, port);
+        int threshold = windowRec;
+
+        AckListener aListener = new AckListener(socket, success, chunks, windowSemaph, stop, recentRtt, lastRtt, recIndex, address, port, threshold);
         Thread t1 = new Thread(aListener);
         t1.start();
 
