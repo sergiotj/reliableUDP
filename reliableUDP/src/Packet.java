@@ -46,7 +46,6 @@ public class Packet implements Serializable {
 
     public Packet(byte[] data, int seqNumber, byte[] hash, Timestamp rtt) {
 
-        this.type = type;
         this.data = data;
         this.seqNumber = seqNumber;
         this.hash = hash;

@@ -31,7 +31,9 @@ public class Timer implements Runnable {
                 double velocity = dataReceived.get() / secs * 0.0000076294;
                 String velocityS = String.format("%.2g", velocity);
 
-                double status = iWritten.get() * 100 / nrParts;
+                double status = iWritten.get() * 100 / nrParts + 1;
+
+                if (status > 100) status = 100;
 
                 System.out.println("Velocidade: " + velocityS + " MBs/seg" + "----- Estado: " + status + "%");
 
