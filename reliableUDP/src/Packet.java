@@ -27,16 +27,18 @@ public class Packet implements Serializable {
     private int nrParts;
     private String key;
     private Timestamp rtt;
+    private int window;
 
     public Packet(byte[] fullPacket) {
 
         this.data = fullPacket;
     }
 
-    public Packet(String filename, String operation, String key) {
+    public Packet(String filename, String operation, int window, String key) {
 
         this.filename = filename;
         this.operation = operation;
+        this.window = window;
         this.key = key;
     }
 
@@ -93,6 +95,11 @@ public class Packet implements Serializable {
     public Timestamp getTimestamp() {
 
         return this.rtt;
+    }
+
+    public int getWindow() {
+
+        return this.window;
     }
 
     public void setSeqNumber(int seqNumber) {

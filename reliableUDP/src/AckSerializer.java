@@ -24,6 +24,7 @@ public class AckSerializer extends Serializer<Ack> {
             output.writeInt(a.getSeqNumber());
             output.writeInt(a.getStatus());
             output.writeInt(a.getWindow());
+            output.writeInt(a.getRecIndex());
             output.writeString(a.getTimestamp().toString());
         }
 
@@ -60,7 +61,7 @@ public class AckSerializer extends Serializer<Ack> {
 
             TypeAck t = this.stringToType(input.readString());
 
-            a = new Ack(t, input.readInt(), input.readInt(), input.readInt(), Timestamp.valueOf(input.readString()));
+            a = new Ack(t, input.readInt(), input.readInt(), input.readInt(), input.readInt(), Timestamp.valueOf(input.readString()));
         }
 
         if (op == TypeAck.CONTROL || op == TypeAck.CLOSE) {

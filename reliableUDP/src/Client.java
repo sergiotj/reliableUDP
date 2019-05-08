@@ -92,7 +92,7 @@ public class Client {
 
             if (firstWord.equals("put")) {
 
-                int stat = agent.send(TypeEnt.CLIENT, file);
+                int stat = agent.send(TypeEnt.CLIENT, file, window);
 
                 // força o fecho se algo correu mal
                 if (stat == 1) break;

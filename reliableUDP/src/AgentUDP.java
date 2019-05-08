@@ -63,7 +63,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // envia get file e o servidor vai verificar se tem o ficheiro
-            Packet p = new Packet(filename, "get", key);
+            Packet p = new Packet(filename, "get", window, key);
 
             Ack a = this.sendReliableInfo(p, TypePk.FNOP);
 
@@ -96,7 +96,7 @@ public class AgentUDP {
         return 0;
     }
 
-    public int send(TypeEnt ent, String filename) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InterruptedException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+    public int send(TypeEnt ent, String filename, int windowRec) throws IOException, NoSuchPaddingException, NoSuchAlgorithmException, InterruptedException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         // verifica se tem o ficheiro
         File f = new File(filename);
@@ -109,7 +109,7 @@ public class AgentUDP {
         if (ent == TypeEnt.CLIENT) {
 
             // Envia pacote a dizer que quer mandar ficheiro
-            Packet p = new Packet(filename, "put", key);
+            Packet p = new Packet(filename, "put", window, key);
 
             Ack a = this.sendReliableInfo(p, TypePk.FNOP);
 
@@ -133,7 +133,7 @@ public class AgentUDP {
         recentRtt.set(time * 2);
 
         // envia ficheiro
-        dispatchDataFlow(filename);
+        dispatchDataFlow(filename, windowRec);
 
         // recebe ACK
         receiveReliableInfo(TypeAck.CLOSE);
@@ -161,12 +161,13 @@ public class AgentUDP {
 
         FileOutputStream outToFile = new FileOutputStream(newFilename);
 
-        Map<Integer, Packet> buffer = Collections.synchronizedMap(new HashMap<>(this.window));
+        Map<Integer, Packet> bufferToWait = Collections.synchronizedMap(new HashMap<>(this.window));
+        Map<Integer, Packet> bufferToWrite = Collections.synchronizedMap(new HashMap<>(this.window));
 
         ReentrantLock rl = new ReentrantLock() ;
         Condition rCond = rl.newCondition();
 
-        PacketListener pListener = new PacketListener(socket, address, port, buffer, iWritten, this.window, rl, rCond);
+        PacketListener pListener = new PacketListener(socket, address, port, bufferToWait, bufferToWrite, iWritten, this.window, rl, rCond);
         Thread t1 = new Thread(pListener);
         t1.start();
 
@@ -178,45 +179,43 @@ public class AgentUDP {
         AtomicInteger dataReceived = new AtomicInteger(0);
         AtomicBoolean stop = new AtomicBoolean(false);
 
-        Thread t2 = new Thread(new Timer(dataReceived, stop));
+        Thread t2 = new Thread(new Timer(dataReceived, stop, nrParts, iWritten));
         t2.start();
 
         // ciclo de escrita
         while (true) {
 
-            while (!buffer.containsKey(iWritten.get())) {
+            while (!bufferToWrite.containsKey(iWritten.get()) && !bufferToWait.containsKey(iWritten.get())) {
 
                 rl.lock();
 
                 rCond.await(lastRtt.get(), TimeUnit.MILLISECONDS);
 
-                if (buffer.containsKey(iWritten.get())) {
+                if (bufferToWrite.containsKey(iWritten.get())) {
                     rl.unlock();
                     break;
                 }
 
+                rl.unlock();
+
                 // pedir reenvio
                 System.out.println("Pedindo reenvio do pacote: " + iWritten.get());
 
-                int size = this.window - buffer.size();
+                int size = this.window - bufferToWait.size();
 
-                Ack ack = new Ack(TypeAck.DATAFLOW, iWritten.get(), -1, size, new Timestamp(-1));
+                Ack ack = new Ack(TypeAck.DATAFLOW, iWritten.get(), -1, size, iWritten.get(), new Timestamp(-1));
                 byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
                 DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                 socket.send(sendPacket);
 
-                // maxWait = (long) (maxWait / 0.6);
-
-                rl.unlock();
-
             }
 
              // se tem o ficheiro
-            if (buffer.containsKey(iWritten.get())) {
+            if (bufferToWrite.containsKey(iWritten.get())) {
 
-                while(buffer.containsKey(iWritten.get())) {
+                while(bufferToWrite.containsKey(iWritten.get())) {
 
-                    Packet p = buffer.get(iWritten.get());
+                    Packet p = bufferToWrite.get(iWritten.get());
 
                     byte[] dataToBeWrite = cipher.doFinal(p.getData());
 
@@ -225,7 +224,26 @@ public class AgentUDP {
                     outToFile.write(dataToBeWrite);
                     System.out.println("A escrever o segmento: " + iWritten);
 
-                    buffer.remove(iWritten.get());
+                    bufferToWrite.remove(iWritten.get());
+
+                    iWritten.incrementAndGet();
+                }
+            }
+
+            if (bufferToWait.containsKey(iWritten.get())) {
+
+                while(bufferToWait.containsKey(iWritten.get())) {
+
+                    Packet p = bufferToWait.get(iWritten.get());
+
+                    byte[] dataToBeWrite = cipher.doFinal(p.getData());
+
+                    dataReceived.getAndAdd(dataToBeWrite.length);
+
+                    outToFile.write(dataToBeWrite);
+                    System.out.println("A escrever o segmento: " + iWritten);
+
+                    bufferToWait.remove(iWritten.get());
 
                     iWritten.incrementAndGet();
                 }
@@ -241,6 +259,12 @@ public class AgentUDP {
                     t1.interrupt();
                     stop.set(true);
                     System.out.println("Ficheiro recebido com sucesso.");
+
+                    Ack a = new Ack(TypeAck.CLOSE, 1, new Timestamp(System.currentTimeMillis()));
+                    byte[] ackpack = Ack.ackToBytes(this.kryo, a, a.getType());
+                    DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
+                    socket.send(sendPacket);
+
                     return;
 
                 } else {
@@ -252,29 +276,30 @@ public class AgentUDP {
         }
     }
 
-    private void dispatchDataFlow(String fileName) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
+    private void dispatchDataFlow(String fileName, int windowRec) throws IOException, NoSuchAlgorithmException, InterruptedException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException {
 
         File file = new File(fileName);
 
         CopyOnWriteArrayList<Packet> chunks = new CopyOnWriteArrayList<>(Packet.fileToChunks(file, sizeOfPacket, this.key));
 
-        CopyOnWriteArrayList<Packet> priority = new CopyOnWriteArrayList<>();
-
         CopyOnWriteArraySet<Integer> success = new CopyOnWriteArraySet<>();
 
         AtomicBoolean stop = new AtomicBoolean(false);
+        AtomicInteger recIndex = new AtomicInteger(0);
 
         int parts = chunks.size();
 
         ResizeableSemaphore windowSemaph = new ResizeableSemaphore();
         windowSemaph.release(1);
 
-        AckListener aListener = new AckListener(socket, success, chunks, priority, windowSemaph, stop, recentRtt, lastRtt);
+        AckListener aListener = new AckListener(socket, success, chunks, windowSemaph, stop, recentRtt, lastRtt, recIndex, address, port);
         Thread t1 = new Thread(aListener);
         t1.start();
 
         int index = 0;
         int savedIndex = 0;
+
+        int reSent = 0;
 
         System.out.println("Partes a enviar: " + parts);
 
@@ -282,29 +307,7 @@ public class AgentUDP {
 
             while (windowSemaph.availablePermits() >= 0) {
 
-                if (!priority.isEmpty()) {
-
-                    for (Packet p : priority) {
-
-                        p.addTimestamp(new Timestamp(System.currentTimeMillis()));
-
-                        byte[] message = Packet.packetToBytes(this.kryo, p, TypePk.DATA);
-                        DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
-
-                        Thread.sleep(lastRtt.get());
-
-                        socket.send(sendPacket);
-
-                        System.out.println("REENVIO Sent: Sequence number = " + p.getSeqNumber());
-
-                        priority.remove(p);
-                    }
-
-                    index = savedIndex;
-
-                }
-
-                if ((success.size() == chunks.size() && priority.isEmpty()) | stop.get()){
+                if ((success.size() == chunks.size()) || stop.get()){
 
                     t1.interrupt();
                     System.out.println("Ficheiro enviado com sucesso.");
@@ -312,14 +315,20 @@ public class AgentUDP {
 
                 }
 
+                index = savedIndex;
+
                 if (stop.get()) break;
                 if (success.size() == chunks.size()) break;
 
                 for (; index < chunks.size();) {
 
-                    if (!priority.isEmpty() || (windowSemaph.availablePermits() <= window * 0.2 && index > window)) break;
-
                     Packet p = chunks.get(index);
+
+                    int recIndexToSend;
+                    if (recIndex.get() > reSent) recIndexToSend = recIndex.get();
+                    else recIndexToSend = reSent;
+
+                    if (index > recIndexToSend + windowRec - 1) break;
 
                     if (success.contains(p.getSeqNumber())) continue;
 
@@ -334,13 +343,10 @@ public class AgentUDP {
 
                     System.out.println("Sent: " + p.getSeqNumber());
 
-                    // System.out.println("SIZE DA JANELA DEPOIS = " + windowSemaph.availablePermits());
-
                     index++;
                     savedIndex = index;
-                }
 
-                if (!priority.isEmpty()) break;
+                }
 
             }
         }

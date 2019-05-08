@@ -1,9 +1,7 @@
 import java.util.concurrent.Semaphore;
 
 public final class ResizeableSemaphore extends Semaphore {
-    /**
-     *
-     */
+
     private static final long serialVersionUID = 1L;
 
     /**
@@ -14,11 +12,10 @@ public final class ResizeableSemaphore extends Semaphore {
         super(0);
     }
 
-    protected void changePermits(int change) {
+    protected synchronized void changePermits(int change) {
 
         int permits = super.availablePermits();
         super.reducePermits(permits);
-
         super.release(change);
     }
 }

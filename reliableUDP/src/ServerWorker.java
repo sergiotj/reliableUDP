@@ -60,6 +60,8 @@ public class ServerWorker implements Runnable {
 
             String operation = p.getOperation();
 
+            int window = p.getWindow();
+
             System.out.println("Nome do ficheiro: " + filename);
             System.out.println("Operação recebida: " + operation);
 
@@ -72,7 +74,7 @@ public class ServerWorker implements Runnable {
             // se é um get file
             if (operation.equals("get")) {
 
-                agent.send(TypeEnt.SERVER, filename);
+                agent.send(TypeEnt.SERVER, filename, window);
             }
 
         } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException | InvalidKeyException | InterruptedException exc) {
