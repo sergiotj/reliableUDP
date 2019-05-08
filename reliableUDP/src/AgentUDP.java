@@ -100,6 +100,14 @@ public class AgentUDP {
 
         // verifica se tem o ficheiro
         File f = new File(filename);
+
+        // security
+        if (filename.equals("users.txt")) {
+
+            System.out.println("Ficheiro não existe ;)");
+            return 1;
+        }
+
         if(!f.isFile()) {
 
             System.out.println("FICHEIRO NÃO EXISTE!");
