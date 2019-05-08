@@ -189,12 +189,14 @@ public class AgentUDP {
 
                 rl.lock();
 
-                rCond.await(lastRtt.get() * 2, TimeUnit.MILLISECONDS);
+                rCond.await(lastRtt.get(), TimeUnit.MILLISECONDS);
 
                 if (bufferToWrite.containsKey(iWritten.get())) {
                     rl.unlock();
                     break;
                 }
+
+                rl.unlock();
 
                 // pedir reenvio
                 System.out.println("Pedindo reenvio do pacote: " + iWritten.get());
@@ -205,8 +207,6 @@ public class AgentUDP {
                 byte[] ackpack = Ack.ackToBytes(this.kryo, ack, ack.getType());
                 DatagramPacket sendPacket = new DatagramPacket(ackpack, ackpack.length, this.address, this.port);
                 socket.send(sendPacket);
-
-                rl.unlock();
 
             }
 
