@@ -22,12 +22,14 @@ public class Server {
         this.users = new HashMap<>();
     }
 
-    public void startServer() throws IOException {
+    public void startServer(String[] args) throws IOException, NumberFormatException {
 
-        DatagramSocket socket = new DatagramSocket(4445);
+        int port = Integer.parseInt(args[0]);
+
+        DatagramSocket socket = new DatagramSocket(port);
         Kryo kryo = new Kryo();
 
-        System.out.println("Server started at port 4445.");
+        System.out.println("Server started at port " + port);
 
         while (true) {
 
@@ -103,13 +105,16 @@ public class Server {
 
         try {
 
-            sv.startServer();
+            sv.startServer(args);
 
         } catch (IOException ioex) {
 
             ioex.printStackTrace();
         }
-
+        catch (NumberFormatException e)
+        {
+            System.out.println("Número de porta incorreto");
+        }
     }
 
 }
