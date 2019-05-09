@@ -48,6 +48,7 @@ public class AckListener implements Runnable {
 
         int congestWindow = 1;
         int consecutiveSuccess = 0;
+        boolean surpassedThreshold = false;
 
         // flag que nos diz se já houve pedidos de reenvio ou não
         boolean reSent = false;
@@ -120,10 +121,19 @@ public class AckListener implements Runnable {
                     // janela de congestão fica linear depois de pedido de reenvio
                     if (!reSent) {
 
-                        if (congestWindow > threshold) congestWindow = consecutiveSuccess + 1;
-                        else congestWindow = (int) Math.pow(2, consecutiveSuccess);
+                        if (surpassedThreshold) {
+                            congestWindow = congestWindow + 1;
+                        }
+                        else {
+                            congestWindow = (int) Math.pow(2, consecutiveSuccess);
+                            System.out.println("window" + congestWindow);
+                            if (congestWindow > threshold) {
+                                congestWindow = threshold;
+                                surpassedThreshold = true;
+                            }
+                        }
 
-                    } else congestWindow = consecutiveSuccess + 1;
+                    } else congestWindow = congestWindow + 1;
 
                     int flowWindow = a.getWindow();
                     if (flowWindow < 0) flowWindow = 0;
@@ -141,14 +151,11 @@ public class AckListener implements Runnable {
                 if (a.getStatus() == -1 && a.getType() == TypeAck.DATAFLOW) {
 
                     reSent = true;
-                    consecutiveSuccess = 0;
 
                     int ackReceived = a.getSeqNumber();
                     this.recIndex.set(a.getRecIndex());
 
-                    // evitar repetidos
-
-                    System.out.println("Pedido de reenvio = " + ackReceived);
+                    System.out.println("Request for ReSent = " + ackReceived);
 
                     congestWindow = congestWindow / 2;
                     int flowWindow = a.getWindow();
@@ -158,16 +165,11 @@ public class AckListener implements Runnable {
 
                     windowSemaph.changePermits(finalWindow);
 
-                    // reenvio... logo ele precisa que lhe mande um pacote
-                    if (windowSemaph.availablePermits() == 0) {
-                        windowSemaph.changePermits(1);
-                    }
+                    System.out.println("WINDOW changed to: " + finalWindow + " because congWindow = " + congestWindow + " and recWindow = " + flowWindow);
 
                     for (Packet p : chunks) {
 
                         if (p.getSeqNumber() == ackReceived) {
-
-                            System.out.println("WINDOW MESMO: " + windowSemaph.availablePermits());
 
                             p.addTimestamp(new Timestamp(System.currentTimeMillis()));
                             p.setRttNow((int) lastRtt.get());
@@ -176,9 +178,10 @@ public class AckListener implements Runnable {
                             DatagramPacket sendPacket = new DatagramPacket(message, message.length, this.address, this.port);
 
                             socket.send(sendPacket);
-                            windowSemaph.acquire();
 
-                            System.out.println("REENVIO Sent: Sequence number = " + p.getSeqNumber());
+                            System.out.println("ReSent: Sequence number = " + p.getSeqNumber());
+
+                            break;
                         }
 
                     }
@@ -196,7 +199,7 @@ public class AckListener implements Runnable {
 
                 System.out.println("Warning...");
 
-            } catch (IOException | InterruptedException ioex) {
+            } catch (IOException ioex) {
 
                 System.out.println("exceção");
                 stop.getAndSet(true);

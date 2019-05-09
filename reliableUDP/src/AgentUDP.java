@@ -201,7 +201,7 @@ public class AgentUDP {
                 if (lastRtt.get() < 100) wait = 100;
                 else wait = (int) lastRtt.get();
 
-                rCond.await(wait, TimeUnit.MILLISECONDS);
+                rCond.await(wait * 2, TimeUnit.MILLISECONDS);
 
                 if (bufferToWrite.containsKey(iWritten.get())) {
                     rl.unlock();
