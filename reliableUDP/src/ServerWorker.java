@@ -40,7 +40,7 @@ public class ServerWorker implements Runnable {
 
             AgentUDP agent = new AgentUDP(socket, address, port, sizeOfPacket, window, kryo);
 
-            Ack a = agent.receiveHandshake(TypeAck.CONNECT);
+            Ack a = agent.receiveHandshake();
 
             if (a == null) {
 

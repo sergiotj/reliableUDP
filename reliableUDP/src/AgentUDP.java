@@ -380,7 +380,7 @@ public class AgentUDP {
     public static Ack sendHandshake(Client client, DatagramSocket socket, InetAddress IPAddress, int port, Kryo kryo, String username, String password, TypeAck type) throws IOException {
 
         Ack ack = new Ack(type, 1, username, password, new Timestamp(System.currentTimeMillis()));
-        byte[] ackB = Ack.ackToBytes(kryo, ack, type);
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONNECT);
 
         DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, IPAddress, port);
         socket.send(sendPacket);
@@ -417,24 +417,21 @@ public class AgentUDP {
 
         if (retry == 5) return null;
 
-        socket.send(sendPacket);
+        Ack ack1 = new Ack(TypeAck.CONTROL, 1, new Timestamp(System.currentTimeMillis()));
+        byte[] ackB1 = Ack.ackToBytes(kryo, ack1, TypeAck.CONTROL);
+
+        DatagramPacket sendPacket2 = new DatagramPacket(ackB1, ackB1.length, IPAddress, receivedPacket.getPort());
+
+        socket.send(sendPacket2);
         System.out.println("Mandei um Handshake");
 
-        return Ack.bytesToAck(kryo, message, type);
+        return Ack.bytesToAck(kryo, message, TypeAck.CONTROL);
     }
 
-    public Ack receiveHandshake(TypeAck type) throws IOException {
+    public Ack receiveHandshake() throws IOException {
 
-        // só fazer em diferentes de connect pq no connect ja recebeu no server.java
-        if (!type.equals(TypeAck.CONNECT)) {
-
-            byte[] ack = new byte[50];
-            DatagramPacket receivePacket = new DatagramPacket(ack, ack.length);
-            socket.receive(receivePacket);
-        }
-
-        Ack ack = new Ack(type, 1, new Timestamp(System.currentTimeMillis()));
-        byte[] ackB = Ack.ackToBytes(kryo, ack, type);
+        Ack ack = new Ack(TypeAck.CONTROL, 1, new Timestamp(System.currentTimeMillis()));
+        byte[] ackB = Ack.ackToBytes(kryo, ack, TypeAck.CONTROL);
         DatagramPacket sendPacket = new DatagramPacket(ackB, ackB.length, address, port);
 
         byte[] message = new byte[200];
@@ -453,7 +450,7 @@ public class AgentUDP {
                 socket.receive(receivedPacket);
                 System.out.println("Recebi um Handshake");
 
-                return Ack.bytesToAck(kryo, receivedPacket.getData(), type);
+                return Ack.bytesToAck(kryo, receivedPacket.getData(), TypeAck.CONTROL);
 
             } catch (SocketTimeoutException timeout) {
 

@@ -24,7 +24,10 @@ public class Server {
 
     public void startServer(String[] args) throws IOException, NumberFormatException {
 
-        int port = Integer.parseInt(args[0]);
+        int port;
+
+        if (args.length == 0) port = 4445;
+        else port = Integer.parseInt(args[0]);
 
         DatagramSocket socket = new DatagramSocket(port);
         Kryo kryo = new Kryo();
@@ -36,7 +39,7 @@ public class Server {
             System.out.println("Waiting for connection...");
 
             // This method blocks until a message arrives and it stores the message inside the byte array of the DatagramPacket passed to it.
-            byte[] ack = new byte[100];
+            byte[] ack = new byte[200];
             DatagramPacket receivePacket = new DatagramPacket(ack, ack.length);
             socket.receive(receivePacket);
 
